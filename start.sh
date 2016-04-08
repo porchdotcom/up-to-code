@@ -41,7 +41,7 @@ while true; do
     git checkout -B goldkeeper-$PACKAGE
 
     echo "update time"
-    ncu -a -r http://npm.mgmt.porch.com $PACKAGE
+    ncu -a -r http://npm.mgmt.porch.com --packageFile package.json $PACKAGE
 
     echo "commit time"
     git commit -a -m "goldkeeper bump of $PACKAGE";
