@@ -1,25 +1,54 @@
 #!/bin/bash
 
 PORCH_REPO_BASE=porchdotcom
-PORCH_REPO_NAME=frontend-connection
 
-echo "clone time"
-git clone --depth 1 git@github.com:$PORCH_REPO_BASE/$PORCH_REPO_NAME.git
+PER_PAGE=100
+PAGE=0
 
-echo "cd time"
-cd $PORCH_REPO_NAME
+while true; do
+  echo "fetch repos page $PAGE"
+  # Get repos...paginated, so make sure to keep fetching
+  repos=(`curl -sfu $GITHUB_AUTH "https://api.github.com/orgs/$PORCH_REPO_BASE/repos?per_page=$PER_PAGE&page=$PAGE" | jq --raw-output '.[] | select(.language == "JavaScript") | .name'`)
 
-echo "checkout time"
-git checkout -B goldkeeper-$PACKAGE
+  if [ ${#repos[@]} -eq 0 ]; then
+      echo "no more repos"
+      exit
+  fi
 
-echo "update time"
-ncu -a -r http://npm.mgmt.porch.com $PACKAGE
+  for repo in ${repos[@]}; do
+    echo "repo time $repo"
 
-echo "commit time"
-git commit -a -m "goldkeeper bump of $PACKAGE";
+    # test if package.json exists in this repo and tell curl to fail on http errors so we can abort early
+    curl -sfu $GITHUB_AUTH https://api.github.com/repos/porchdotcom/$repo/contents/package.json
+    if [ $? -ne 0 ]; then
+        echo "package.json not found"
+        continue
+    fi
 
-echo "push time"
-git push -fu origin HEAD
+    echo "clone time"
+    git clone --depth 1 git@github.com:/$PORCH_REPO_BASE/$repo.git $repo
 
-echo "pr time"
-hub pull-request -m "goldkeeper bump of $PACKAGE"
+    echo "cd time"
+    cd $repo
+
+    echo "checkout time"
+    git checkout -B goldkeeper-$PACKAGE
+
+    echo "update time"
+    ncu -a -r http://npm.mgmt.porch.com $PACKAGE
+
+    echo "commit time"
+    git commit -a -m "goldkeeper bump of $PACKAGE";
+
+    echo "push time"
+    git push -fu origin HEAD
+
+    echo "pr time"
+    hub pull-request -m "goldkeeper bump of $PACKAGE"
+
+    echo "undo cd time"
+    cd ..
+  done
+
+  PAGE=$((PAGE + 1))
+done
