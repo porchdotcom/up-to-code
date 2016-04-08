@@ -18,12 +18,18 @@ while true; do
   for repo in ${repos[@]}; do
     echo "repo time $repo"
 
+    if [ "$repo" = "$PACKAGE" ]; then
+      continue;
+    fi
+
     # test if package.json exists in this repo and tell curl to fail on http errors so we can abort early
-    curl -sfu $GITHUB_AUTH https://api.github.com/repos/porchdotcom/$repo/contents/package.json
+    curl -sfu $GITHUB_AUTH https://api.github.com/repos/porchdotcom/$repo/contents/package.json | jq --raw-output '.content' | base64 -d | grep $PACKAGE
     if [ $? -ne 0 ]; then
-        echo "package.json not found"
+        echo "$PACKAGE not found in package.json"
         continue
     fi
+
+    echo "$PACKAGE found in $repo's package.json"
 
     echo "clone time"
     git clone --depth 1 git@github.com:/$PORCH_REPO_BASE/$repo.git $repo
