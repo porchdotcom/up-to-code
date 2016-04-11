@@ -1,0 +1,27 @@
+{
+  "name": "goldkeeper",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "eslint src",
+    "start": "DEBUG=porch:goldkeeper* babel-node src/index.js",
+    "test": "PACKAGE=porch-react-components npm run start"
+  },
+  "dependencies": {
+    "babel-cli": "^6.6.5",
+    "babel-preset-porch": "^1.0.1",
+    "debug": "^2.2.0",
+    "github": "^0.2.4",
+    "lodash": "^4.8.2",
+    "nconf": "^0.8.4",
+    "npm-check-updates": "^2.6.1",
+    "q": "^1.4.1"
+  },
+  "devDependencies": {
+    "babel-eslint": "^6.0.2",
+    "eslint": "^2.7.0",
+    "eslint-config-porch": "^2.0.3",
+    "eslint-plugin-mocha": "^2.1.0",
+    "eslint-plugin-react": "^4.3.0"
+  }
+}
