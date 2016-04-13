@@ -8,13 +8,37 @@ import {
     updatePullRequestComment
 } from './github';
 import debug from 'debug';
-import { exec } from 'child_process';
+import childProcess from 'child_process';
+import assert from 'assert';
+import {
+    concat,
+    flatten,
+    noop
+} from 'lodash';
 
 const log = debug('porch:goldkeeper');
+
+const exec = (cmd, options = {}) => {
+    const defer = Q.defer();
+    childProcess.exec(cmd, {
+        ...options,
+        env: nconf.get()
+    }, defer.makeNodeResolver());
+    return defer.promise.spread((stdout, stderr) => {
+        log(`stdout ${stdout}`);
+        log(`stderr ${stderr}`);
+        return stdout;
+    }).catch(err => {
+        log(`FAILURE: ${cmd} ${err.message} ${err.stack}`);
+        throw err;
+    });
+};
 
 nconf.env().file({
     file: path.resolve(__dirname, '../config.json')
 });
+
+assert(nconf.get('PACKAGE'), 'PACKAGE not defined');
 
 log(`goldkeeper ${nconf.get('PACKAGE')}`);
 
@@ -54,30 +78,26 @@ Q.fcall(() => {
         log(name, nconf.get('PACKAGE'));
 
         log(`time to clone and update repo ${name}`);
-        const defer = Q.defer();
-        const commands = [
-            `git clone --depth 1 git@github.com:${nconf.get('PORCH_REPO_BASE')}/${name}.git repos/${name}`,
-            `cd repos/${name}`,
-            `git checkout -B goldkeeper-${nconf.get('PACKAGE')}`,
-            `../../node_modules/.bin/ncu -a -r http://npm.mgmt.porch.com --packageFile package.json ${nconf.get('PACKAGE')}`,
-            `git commit -a -m "Goldkeeper bump of ${nconf.get('PACKAGE')}"`,
-            'git push -fu origin HEAD',
-            `hub pull-request -m "Goldkeeper bump of ${nconf.get('PACKAGE')}"`,
-            'cd ../..'
-        ];
-        log(`commands ${JSON.stringify(commands, null, 4)}`);
-        exec(commands.join(';'), {
-            env: nconf.get()
-        }, defer.makeNodeResolver());
-        return defer.promise.spread((stdout, stderr) => {
-            log(`stdout ${stdout}`);
-            log(`stderr ${stderr}`);
-        }).then(() => {
-            return fetchRepoPackagePullRequest(name).get(0);
-        });
+        const cwd = `repos/${name}`;
+        const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
+        return Q.fcall(() => (
+            exec(`git clone --depth 1 git@github.com:${nconf.get('PORCH_REPO_BASE')}/${name}.git repos/${name}`)
+        )).then(() => (
+            exec(`git checkout -B goldkeeper-${nconf.get('PACKAGE')}`, { cwd })
+        )).then(() => (
+            exec(`${ncu} -a -r http://npm.mgmt.porch.com --packageFile package.json ${nconf.get('PACKAGE')}`, { cwd })
+        )).then(() => (
+            exec(`git commit -a -m "Goldkeeper bump of ${nconf.get('PACKAGE')}"`, { cwd })
+        )).then(() => (
+            exec('git push -fu origin HEAD', { cwd })
+        )).then(() => (
+            exec(`hub pull-request -m "Goldkeeper bump of ${nconf.get('PACKAGE')}"`, { cwd }).catch(noop)
+        )).then(() => (
+            fetchRepoPackagePullRequest(name)
+        ));
     }));
 }).then(prs => {
-    return Q.all(prs.map(pr => {
+    return Q.all(concat(flatten(prs)).map(pr => {
         const otherPRs = prs.filter(({ id }) => id !== pr.id);
         return updatePullRequestComment(pr, `related\n\n${otherPRs.map(({ html_url }) => html_url).join('\n')}`); // eslint-disable-line camelcase
     }));
