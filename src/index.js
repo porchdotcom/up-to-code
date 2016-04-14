@@ -77,8 +77,6 @@ Q.fcall(() => {
         }).catch(() => false);
     });
 }).then(repos => {
-    return repos;//.filter(({ name }) => name === 'frontend-consumer');
-}).then(repos => {
     const pullRequests = [];
     const diffs = {};
     const releaseNotes = {};
@@ -99,7 +97,7 @@ Q.fcall(() => {
             const versions = stdout.match(semverRegex());
             assert(versions, `invalid npm-check-updates output ${stdout}`);
 
-            diffs[name] = `http://github.com/porchdotcom/${nconf.get('PACKAGE')}/compare/v${versions[0]}...v${versions[1]}`;
+            diffs[name] = `[v${versions[0]}...v${versions[1]}](http://github.com/porchdotcom/${nconf.get('PACKAGE')}/compare/v${versions[0]}...v${versions[1]})`;
 
             return Q.fcall(() => (
                 fetchRepoPackageReleases()
@@ -127,7 +125,7 @@ Q.fcall(() => {
         )).then(() => (
             exec('git push -fu origin HEAD', { cwd })
         )).then(() => (
-            exec(`hub pull-request -m "Goldkeeper bump of ${nconf.get('PACKAGE')}"`, { cwd }).catch(noop)
+            exec(`hub pull-request -m "Goldkeeper - ${nconf.get('PACKAGE')}"`, { cwd }).catch(noop)
         )).then(() => (
             fetchRepoPackagePullRequest(name)
         )).then(packagePullRequests => {
@@ -141,19 +139,16 @@ Q.fcall(() => {
         return Q.all(pullRequests.map(pr => {
             const otherPRs = pullRequests.filter(({ id }) => id !== pr.id);
             const diff = diffs[pr.head.repo.name];
-            const notes = releaseNotes[pr.head.repo.name].map(release => (`${[
-                release.tag_name,
-                release.name,
-                release.body,
-                `- ${release.author.login}`
-            ].join('\n')}\n`));
+            const notes = releaseNotes[pr.head.repo.name].map(release => (
+                `##### ${release.tag_name} - ${release.name}\n${release.body}\n@${release.author.login}\n\n`
+            ));
             return updatePullRequestComment(pr, [
-                'Diff',
+                '### Diff',
                 diff,
-                'Release Notes',
+                '### Release Notes',
                 notes,
-                'Related',
-                `${otherPRs.map(({ html_url }) => html_url).join('\n')}` // eslint-disable-line camelcase
+                '### Related',
+                `${otherPRs.map(({ html_url }) => `- ${html_url}`).join('\n')}` // eslint-disable-line camelcase
             ].join('\n\n'));
         }));
     });

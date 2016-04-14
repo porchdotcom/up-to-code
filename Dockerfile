@@ -17,7 +17,9 @@ ADD bin/hub /usr/bin
 WORKDIR /opt/build
 
 # handle npm deps
-ADD . /opt/build/
+ADD package.json /opt/build/
 RUN npm install
+
+ADD . /opt/build/
 
 CMD ["npm", "start"]
