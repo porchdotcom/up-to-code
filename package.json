@@ -6,17 +6,19 @@
     "clean": "rimraf repos",
     "lint": "eslint src",
     "start": "DEBUG=porch:goldkeeper* babel-node src/index.js",
-    "test": "npm run clean && PACKAGE=porch-react-components npm run start"
+    "test": "npm run clean && PACKAGE=common-styles npm run start"
   },
   "dependencies": {
     "babel-cli": "^6.6.5",
     "babel-preset-porch": "^1.0.1",
+    "compare-versions": "^2.0.1",
     "debug": "^2.2.0",
     "github": "^0.2.4",
     "lodash": "^4.8.2",
     "nconf": "^0.8.4",
     "npm-check-updates": "^2.6.1",
-    "q": "^1.4.1"
+    "q": "^1.4.1",
+    "semver-regex": "^1.0.0"
   },
   "devDependencies": {
     "babel-eslint": "^6.0.2",

@@ -2,7 +2,10 @@ import Q from 'q';
 import GitHubApi from 'github';
 import nconf from 'nconf';
 import debug from 'debug';
-import { memoize } from 'lodash';
+import {
+    memoize,
+    uniqBy
+} from 'lodash';
 import assert from 'assert';
 
 const log = debug('porch:goldkeeper:github');
@@ -35,7 +38,7 @@ export const fetchRepos = memoize(() => {
         });
     };
 
-    return getReposPage(0).tap(repos => log(`${repos.length} repos found`));
+    return getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`));
 });
 
 export const fetchRepoPackage = memoize(repo => {
@@ -96,13 +99,42 @@ export const updatePullRequestComment = memoize((pr, body) => {
     });
 
     const defer = Q.defer();
-    const params = {
+    github.pullRequests.update({
         user: nconf.get('GITHUB_ORG'),
         repo: pr.head.repo.name,
         number: pr.number,
         title: pr.title,
         body: body
-    };
-    github.pullRequests.update(params, defer.makeNodeResolver());
+    }, defer.makeNodeResolver());
     return defer.promise;
+});
+
+export const fetchRepoPackageReleases = memoize(() => {
+    log('fetchRepoPackageReleases');
+
+    const github = new GitHubApi({
+        version: '3.0.0'
+    });
+    github.authenticate({
+        type: 'token',
+        token: nconf.get('GITHUB_API_TOKEN')
+    });
+
+    const getReleasesPage = page => {
+        const defer = Q.defer();
+        github.releases.listReleases({
+            owner: nconf.get('GITHUB_ORG'),
+            repo: nconf.get('PACKAGE'),
+            page: page,
+            per_page: PAGE_LENGTH
+        }, defer.makeNodeResolver());
+        return defer.promise.then(pageReleases => {
+            if (pageReleases.length === PAGE_LENGTH) {
+                return getReleasesPage(page + 1).then(nextPageReleases => [...pageReleases, ...nextPageReleases]);
+            }
+            return pageReleases;
+        });
+    };
+
+    return getReleasesPage(0).tap(releases => log(`${releases.length} releases found`));
 });
