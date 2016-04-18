@@ -140,7 +140,7 @@ export const fetchRepoPackageReleases = memoize(() => {
 });
 
 export const compareCommits = memoize((base, head) => {
-    log('fetchRepoPackageReleases');
+    log('compareCommits');
 
     const github = new GitHubApi({
         version: '3.0.0'
@@ -159,3 +159,49 @@ export const compareCommits = memoize((base, head) => {
     }, defer.makeNodeResolver());
     return defer.promise;
 }, (base, head) => JSON.stringify({ base, head }));
+
+export const getContributors = memoize(repo => {
+    log(`getContributors ${repo}`);
+
+    const github = new GitHubApi({
+        version: '3.0.0'
+    });
+    github.authenticate({
+        type: 'token',
+        token: nconf.get('GITHUB_API_TOKEN')
+    });
+
+    const defer = Q.defer();
+    github.repos.getContributors({
+        user: nconf.get('GITHUB_ORG'),
+        repo
+    }, defer.makeNodeResolver());
+    return defer.promise;
+});
+
+export const getMembers = memoize(() => {
+    log('getMembers');
+
+    const github = new GitHubApi({
+        version: '3.0.0'
+    });
+    github.authenticate({
+        type: 'token',
+        token: nconf.get('GITHUB_API_TOKEN')
+    });
+
+    const getMembersPage = page => {
+        const defer = Q.defer();
+        github.orgs.getMembers({
+            org: nconf.get('GITHUB_ORG')
+        }, defer.makeNodeResolver());
+        return defer.promise.then(pageMembers => {
+            if (pageMembers.length === PAGE_LENGTH) {
+                return getMembersPage(page + 1).then(nextPageMembers => [...pageMembers, ...nextPageMembers]);
+            }
+            return pageMembers;
+        });
+    };
+
+    return getMembersPage(0).tap(members => log(`${members.length} members found`));
+});

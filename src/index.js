@@ -7,7 +7,9 @@ import {
     fetchRepoPackagePullRequest,
     updatePullRequestComment,
     fetchRepoPackageReleases,
-    compareCommits
+    compareCommits,
+    getContributors,
+    getMembers
 } from './github';
 import debug from 'debug';
 import childProcess from 'child_process';
@@ -80,6 +82,7 @@ Q.fcall(() => {
     const diffs = {};
     const commits = {};
     const releaseNotes = {};
+    const reviewers = {};
     return Q.all(repos.map(({ name }) => {
         // this repo depends on PACKAGE. update this repo
         log(`updating ${name} ${nconf.get('PACKAGE')}`);
@@ -138,10 +141,20 @@ Q.fcall(() => {
         )).then(() => (
             exec(`hub pull-request -m "Goldkeeper - ${nconf.get('PACKAGE')}"`, { cwd }).catch(noop)
         )).then(() => (
-            fetchRepoPackagePullRequest(name)
-        )).then(packagePullRequests => {
-            packagePullRequests.forEach(pr => pullRequests.push(pr));
-        }).catch(err => (
+            fetchRepoPackagePullRequest(name).then(packagePullRequests => {
+                packagePullRequests.forEach(pr => pullRequests.push(pr));
+            })
+        )).then(() => (
+            Q.all([
+                getContributors(name),
+                getMembers()
+            ]).spread((contributors, members) => {
+                const contributorLogins = contributors.map(({ login }) => login);
+                const memberLogins = members.map(({ login }) => login);
+                // only include folks that still work here
+                reviewers[name] = contributorLogins.filter(login => memberLogins.includes(login)).slice(0, 3);
+            })
+        )).catch(err => (
             log(`err ${name} ${err.message} ${err.stack}`)
         )).finally(() => (
             exec(`rm -rf ${path.resolve(__dirname, cwd)}`)
@@ -149,6 +162,7 @@ Q.fcall(() => {
     })).then(() => {
         return Q.all(pullRequests.map(pr => {
             return updatePullRequestComment(pr, [
+                reviewers[pr.head.repo.name].map(reviewer => `@${reviewer}`).join(', '),
                 '### Diff',
                 diffs[pr.head.repo.name],
                 '### Commits',
