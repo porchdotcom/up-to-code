@@ -6,7 +6,8 @@ import {
     fetchRepoPackage,
     fetchRepoPackagePullRequest,
     updatePullRequestComment,
-    fetchRepoPackageReleases
+    fetchRepoPackageReleases,
+    compareCommits
 } from './github';
 import debug from 'debug';
 import childProcess from 'child_process';
@@ -58,8 +59,6 @@ const promiseFilter = (arr, fn) => {
     })).thenResolve(ret);
 };
 
-const sequence = (arr, fn) => arr.reduce((prev, next) => prev.then(() => fn(next)), Q.resolve());
-
 Q.fcall(() => {
     return fetchRepos();
 }).then(repos => {
@@ -79,6 +78,7 @@ Q.fcall(() => {
 }).then(repos => {
     const pullRequests = [];
     const diffs = {};
+    const commits = {};
     const releaseNotes = {};
     return Q.all(repos.map(({ name }) => {
         // this repo depends on PACKAGE. update this repo
@@ -99,7 +99,13 @@ Q.fcall(() => {
 
             diffs[name] = `[v${versions[0]}...v${versions[1]}](http://github.com/porchdotcom/${nconf.get('PACKAGE')}/compare/v${versions[0]}...v${versions[1]})`;
 
-            return Q.fcall(() => (
+            const fetchReleaseCommits = Q.fcall(() => (
+                compareCommits(`v${versions[0]}`, `v${versions[1]}`)
+            )).then(res => {
+                commits[name] = res.commits;
+            });
+
+            const fetchReleaseNotes = Q.fcall(() => (
                 fetchRepoPackageReleases()
             )).then(releases => (
                 releases.filter(release => semverRegex().test(release.tag_name)) // eslint-disable-line camelcase
@@ -120,6 +126,11 @@ Q.fcall(() => {
             )).then(releases => {
                 releaseNotes[name] = releases;
             });
+
+            return Q.all([
+                fetchReleaseCommits,
+                fetchReleaseNotes
+            ]);
         }).then(() => (
             exec(`git commit -a -m "Goldkeeper bump of ${nconf.get('PACKAGE')}"`, { cwd })
         )).then(() => (
@@ -137,18 +148,19 @@ Q.fcall(() => {
         ));
     })).then(() => {
         return Q.all(pullRequests.map(pr => {
-            const otherPRs = pullRequests.filter(({ id }) => id !== pr.id);
-            const diff = diffs[pr.head.repo.name];
-            const notes = releaseNotes[pr.head.repo.name].map(release => (
-                `##### ${release.tag_name} - ${release.name}\n${release.body}\n@${release.author.login}\n\n`
-            ));
             return updatePullRequestComment(pr, [
                 '### Diff',
-                diff,
+                diffs[pr.head.repo.name],
+                '### Commits',
+                commits[pr.head.repo.name].map(({ commit, author, html_url }) => ( // eslint-disable-line camelcase
+                    `- @${author.login} - [${commit.message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
+                )).join('\n'),
                 '### Release Notes',
-                notes,
+                releaseNotes[pr.head.repo.name].map(({ tag_name, name, body, author}) => ( // eslint-disable-line camelcase
+                    `##### ${tag_name} - ${name}\n${body}\n@${author.login}\n\n`  // eslint-disable-line camelcase
+                )),
                 '### Related',
-                `${otherPRs.map(({ html_url }) => `- ${html_url}`).join('\n')}` // eslint-disable-line camelcase
+                `${pullRequests.filter(({ id }) => id !== pr.id).map(({ html_url }) => `- ${html_url}`).join('\n')}` // eslint-disable-line camelcase
             ].join('\n\n'));
         }));
     });

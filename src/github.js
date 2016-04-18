@@ -138,3 +138,24 @@ export const fetchRepoPackageReleases = memoize(() => {
 
     return getReleasesPage(0).tap(releases => log(`${releases.length} releases found`));
 });
+
+export const compareCommits = memoize((base, head) => {
+    log('fetchRepoPackageReleases');
+
+    const github = new GitHubApi({
+        version: '3.0.0'
+    });
+    github.authenticate({
+        type: 'token',
+        token: nconf.get('GITHUB_API_TOKEN')
+    });
+
+    const defer = Q.defer();
+    github.repos.compareCommits({
+        user: nconf.get('GITHUB_ORG'),
+        repo: nconf.get('PACKAGE'),
+        base,
+        head
+    }, defer.makeNodeResolver());
+    return defer.promise;
+}, (base, head) => JSON.stringify({ base, head }));
