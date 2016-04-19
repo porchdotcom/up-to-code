@@ -167,7 +167,7 @@ Q.fcall(() => {
                 diffs[pr.head.repo.name],
                 '### Commits',
                 commits[pr.head.repo.name].map(({ commit, author, html_url }) => ( // eslint-disable-line camelcase
-                    `- @${author.login} - [${commit.message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
+                    `- ${author.login} - [${commit.message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
                 )).join('\n'),
                 '### Release Notes',
                 releaseNotes[pr.head.repo.name].map(({ tag_name, name, body, author}) => ( // eslint-disable-line camelcase

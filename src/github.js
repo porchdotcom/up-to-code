@@ -193,7 +193,9 @@ export const getMembers = memoize(() => {
     const getMembersPage = page => {
         const defer = Q.defer();
         github.orgs.getMembers({
-            org: nconf.get('GITHUB_ORG')
+            org: nconf.get('GITHUB_ORG'),
+            page: page,
+            per_page: PAGE_LENGTH
         }, defer.makeNodeResolver());
         return defer.promise.then(pageMembers => {
             if (pageMembers.length === PAGE_LENGTH) {
