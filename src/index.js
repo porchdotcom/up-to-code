@@ -20,6 +20,7 @@ import {
 import semverRegex from 'semver-regex';
 import compareVersions from 'compare-versions';
 
+const HELPSCORE_SCM = 'helpscore-scm';
 const log = debug('porch:goldkeeper');
 
 const exec = (cmd, options = {}) => {
@@ -95,7 +96,7 @@ Q.fcall(() => {
         )).then(() => (
             exec(`git checkout -B goldkeeper-${nconf.get('PACKAGE')}`, { cwd })
         )).then(() => (
-            exec(`${ncu} -a -r http://npm.mgmt.porch.com --packageFile package.json ${nconf.get('PACKAGE')}`, { cwd })
+            exec(`${ncu} -a --packageFile package.json ${nconf.get('PACKAGE')}`, { cwd })
         )).then(stdout => {
             const versions = stdout.match(semverRegex());
             assert(versions, `invalid npm-check-updates output ${stdout}`);
@@ -105,7 +106,10 @@ Q.fcall(() => {
             const fetchReleaseCommits = Q.fcall(() => (
                 compareCommits(`v${versions[0]}`, `v${versions[1]}`)
             )).then(res => {
-                commits[name] = res.commits;
+                commits[name] = res.commits.map(({ author, ...commit }) => ({
+                    ...commit,
+                    author: author || { login: 'unknown' }
+                })).reverse();
             });
 
             const fetchReleaseNotes = Q.fcall(() => (
@@ -166,12 +170,14 @@ Q.fcall(() => {
                 '### Diff',
                 diffs[pr.head.repo.name],
                 '### Commits',
-                commits[pr.head.repo.name].map(({ commit, author, html_url }) => ( // eslint-disable-line camelcase
-                    `- ${author.login} - [${commit.message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
+                commits[pr.head.repo.name].map(({ commit, html_url }) => ( // eslint-disable-line camelcase
+                    `${(
+                        commit.author.name === HELPSCORE_SCM ? '' : `- __${commit.author.name}__`
+                    )}- [${commit.message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
                 )).join('\n'),
                 '### Release Notes',
                 releaseNotes[pr.head.repo.name].map(({ tag_name, name, body, author}) => ( // eslint-disable-line camelcase
-                    `##### ${tag_name} - ${name}\n${body}\n@${author.login}\n\n`  // eslint-disable-line camelcase
+                    `##### ${tag_name} - ${name}\n${body}\n[${author.login}\n\n`  // eslint-disable-line camelcase
                 )),
                 '### Related',
                 `${pullRequests.filter(({ id }) => id !== pr.id).map(({ html_url }) => `- ${html_url}`).join('\n')}` // eslint-disable-line camelcase

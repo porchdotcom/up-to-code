@@ -13,13 +13,18 @@ RUN echo "Host github.com\n\tStrictHostKeyChecking no\n" >> /root/.ssh/config
 
 # add and run
 ADD bin/hub /usr/bin
+COPY npmrc /root/.npmrc
+
+# add and run
+COPY bin/hub /usr/bin/
 
 WORKDIR /opt/build
 
 # handle npm deps
-ADD package.json /opt/build/
+COPY package.json /opt/build/
 RUN npm install
 
-ADD . /opt/build/
+COPY . /opt/build/
+COPY hub.config /root/.config/hub
 
 CMD ["npm", "start"]
