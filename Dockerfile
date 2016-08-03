@@ -9,14 +9,10 @@ RUN npm set registry http://npm.mgmt.porch.com
 RUN npm config set git-tag-version false
 
 # Adding ssh keys, for github helpscore-scm.
-RUN echo "Host github.com\n\tStrictHostKeyChecking no\n" >> /root/.ssh/config
+#RUN echo "Host github.com\n\tStrictHostKeyChecking no\n" >> /root/.ssh/config
 
-# add and run
 ADD bin/hub /usr/bin
-COPY npmrc /root/.npmrc
-
-# add and run
-COPY bin/hub /usr/bin/
+#COPY npmrc /root/.npmrc
 
 WORKDIR /opt/build
 
@@ -25,6 +21,6 @@ COPY package.json /opt/build/
 RUN npm install
 
 COPY . /opt/build/
-COPY hub.config /root/.config/hub
+#COPY hub.config /root/.config/hub
 
 CMD ["npm", "start"]
