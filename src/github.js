@@ -8,7 +8,7 @@ import {
 } from 'lodash';
 import assert from 'assert';
 
-const log = debug('porch:goldkeeper:github');
+const log = debug('porch:goldslammer:github');
 
 const PAGE_LENGTH = 100;
 
@@ -75,7 +75,7 @@ export const fetchRepoPackagePullRequest = memoize(repo => {
     });
 
     const defer = Q.defer();
-    const head = `${nconf.get('GITHUB_ORG')}:goldkeeper-${nconf.get('PACKAGE')}`;
+    const head = `${nconf.get('GITHUB_ORG')}:goldslammer-${nconf.get('PACKAGE')}`;
     github.pullRequests.getAll({
         user: nconf.get('GITHUB_ORG'),
         repo,

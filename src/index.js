@@ -21,7 +21,7 @@ import semverRegex from 'semver-regex';
 import compareVersions from 'compare-versions';
 
 const HELPSCORE_SCM = 'helpscore-scm';
-const log = debug('porch:goldkeeper');
+const log = debug('porch:goldslammer');
 
 const exec = (cmd, options = {}) => {
     log(`EXEC: ${cmd}`);
@@ -46,7 +46,7 @@ nconf.env().file({
 
 assert(nconf.get('PACKAGE'), 'PACKAGE not defined');
 
-log(`goldkeeper ${nconf.get('PACKAGE')}`);
+log(`goldslammer ${nconf.get('PACKAGE')}`);
 
 // promise version of filter...resolve to boolean
 const promiseFilter = (arr, fn) => {
@@ -94,7 +94,7 @@ Q.fcall(() => {
         return Q.fcall(() => (
             exec(`git clone --depth 1 git@github.com:${nconf.get('PORCH_REPO_BASE')}/${name}.git repos/${name}`)
         )).then(() => (
-            exec(`git checkout -B goldkeeper-${nconf.get('PACKAGE')}`, { cwd })
+            exec(`git checkout -B goldslammer-${nconf.get('PACKAGE')}`, { cwd })
         )).then(() => (
             exec(`${ncu} -a --packageFile package.json ${nconf.get('PACKAGE')}`, { cwd })
         )).then(stdout => {
@@ -139,11 +139,11 @@ Q.fcall(() => {
                 fetchReleaseNotes
             ]);
         }).then(() => (
-            exec(`git commit -a -m "Goldkeeper bump of ${nconf.get('PACKAGE')}"`, { cwd })
+            exec(`git commit -a -m "Goldslammer bump of ${nconf.get('PACKAGE')}"`, { cwd })
         )).then(() => (
             exec('git push -fu origin HEAD', { cwd })
         )).then(() => (
-            exec(`hub pull-request -m "Goldkeeper - ${nconf.get('PACKAGE')}"`, { cwd }).catch(noop)
+            exec(`hub pull-request -m "Goldslammer - ${nconf.get('PACKAGE')}"`, { cwd }).catch(noop)
         )).then(() => (
             fetchRepoPackagePullRequest(name).then(packagePullRequests => {
                 packagePullRequests.forEach(pr => pullRequests.push(pr));

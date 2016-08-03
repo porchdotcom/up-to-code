@@ -38,19 +38,19 @@ while true; do
     cd $repo
 
     echo "checkout time"
-    git checkout -B goldkeeper-$PACKAGE
+    git checkout -B goldslammer-$PACKAGE
 
     echo "update time"
     ncu -a -r http://npm.mgmt.porch.com --packageFile package.json $PACKAGE
 
     echo "commit time"
-    git commit -a -m "goldkeeper bump of $PACKAGE";
+    git commit -a -m "goldslammer bump of $PACKAGE";
 
     echo "push time"
     git push -fu origin HEAD
 
     echo "pr time"
-    hub pull-request -m "goldkeeper bump of $PACKAGE"
+    hub pull-request -m "goldslammer bump of $PACKAGE"
 
     echo "undo cd time"
     cd ..

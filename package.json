@@ -1,11 +1,11 @@
 {
-  "name": "goldkeeper",
+  "name": "goldslammer",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "clean": "rimraf repos",
     "lint": "eslint src",
-    "start": "DEBUG=porch:goldkeeper* babel-node src/index.js",
+    "start": "DEBUG=porch:goldslammer* babel-node src/index.js",
     "test": "npm run clean && PACKAGE=porch-node-server npm run start"
   },
   "dependencies": {
