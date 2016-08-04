@@ -8,6 +8,9 @@
     "start": "DEBUG=porch:goldslammer* babel-node src/index.js",
     "test": "npm run clean && PACKAGE=porch-node-server npm run start"
   },
+  "bin": {
+      "goldslammer": "bin/index.js"
+  },
   "dependencies": {
     "babel-cli": "^6.6.5",
     "babel-preset-porch": "^1.0.1",

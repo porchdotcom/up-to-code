@@ -1,3 +1,4 @@
-#!/usr/share/node-v4.4.6-linux-x64/bin/node
+#!/usr/bin/env node
 
-import '../src';
+require('babel-register');
+require('../src');

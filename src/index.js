@@ -1,4 +1,5 @@
 import Q from 'q';
+import parseArgs from 'minimist';
 import nconf from 'nconf';
 import path from 'path';
 import {
@@ -22,6 +23,9 @@ import compareVersions from 'compare-versions';
 
 const HELPSCORE_SCM = 'helpscore-scm';
 const log = debug('porch:goldslammer');
+
+const argv = parseArgs(process.argv.slice(2));
+console.dir(argv);
 
 const exec = (cmd, options = {}) => {
     log(`EXEC: ${cmd}`);
