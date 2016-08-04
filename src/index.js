@@ -1,4 +1,5 @@
 import Q from 'q';
+import fs from 'fs';
 import parseArgs from 'minimist';
 import path from 'path';
 import {
@@ -53,7 +54,7 @@ assert(user, 'github huser name not defined')
 
 log(`goldcatcher ${module}`);
 
-// TODO setup hub config
+fs.writeFileSync('/root/.config/hub', `github.com:\n- user: ${user}\n  oauth_token: ${token}\n  protocol: https\n`);
 
 // promise version of filter...resolve to boolean
 const promiseFilter = (arr, fn) => {
@@ -146,11 +147,11 @@ Q.fcall(() => {
                 fetchReleaseNotes
             ]);
         }).then(() => (
-            exec(`git commit -a -m "goldcatcher bump of ${module}"`, { cwd })
+            exec(`git commit -a -m "Goldcatcher bump of ${module}"`, { cwd })
         )).then(() => (
             exec('git push -fu origin HEAD', { cwd })
         )).then(() => (
-            exec(`hub pull-request -m "goldcatcher - ${module}"`, { cwd }).catch(noop)
+            exec(`hub pull-request -m "Goldcatcher - ${module}"`, { cwd }).catch(noop)
         )).then(() => (
             fetchRepoPackagePullRequest(name, token, org, module).then(packagePullRequests => {
                 packagePullRequests.forEach(pr => pullRequests.push(pr));
