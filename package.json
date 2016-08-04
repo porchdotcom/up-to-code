@@ -1,15 +1,15 @@
 {
-  "name": "goldslammer",
+  "name": "goldcatcher",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "clean": "rimraf repos",
     "lint": "eslint src",
-    "start": "DEBUG=porch:goldslammer* babel-node src/index.js",
+    "start": "DEBUG=porch:goldcatcher* babel-node src/index.js",
     "test": "npm run clean && PACKAGE=porch-node-server npm run start"
   },
   "bin": {
-      "goldslammer": "bin/index.js"
+    "goldcatcher": "bin/index.js"
   },
   "dependencies": {
     "babel-cli": "^6.6.5",
@@ -18,7 +18,7 @@
     "debug": "^2.2.0",
     "github": "^0.2.4",
     "lodash": "^4.8.2",
-    "nconf": "^0.8.4",
+    "minimist": "^1.2.0",
     "npm-check-updates": "^2.6.1",
     "q": "^1.4.1",
     "semver-regex": "^1.0.0"

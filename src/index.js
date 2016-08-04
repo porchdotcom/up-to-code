@@ -1,6 +1,5 @@
 import Q from 'q';
 import parseArgs from 'minimist';
-import nconf from 'nconf';
 import path from 'path';
 import {
     fetchRepos,
@@ -22,17 +21,13 @@ import semverRegex from 'semver-regex';
 import compareVersions from 'compare-versions';
 
 const HELPSCORE_SCM = 'helpscore-scm';
-const log = debug('porch:goldslammer');
-
-const argv = parseArgs(process.argv.slice(2));
-console.dir(argv);
+const log = debug('porch:goldcatcher');
 
 const exec = (cmd, options = {}) => {
     log(`EXEC: ${cmd}`);
     const defer = Q.defer();
     childProcess.exec(cmd, {
-        ...options,
-        env: nconf.get()
+        ...options
     }, defer.makeNodeResolver());
     return defer.promise.spread((stdout, stderr) => {
         log(`stdout ${stdout}`);
@@ -44,13 +39,21 @@ const exec = (cmd, options = {}) => {
     });
 };
 
-nconf.env().file({
-    file: path.resolve(__dirname, '../config.json')
-});
+const argv = parseArgs(process.argv.slice(2));
 
-assert(nconf.get('PACKAGE'), 'PACKAGE not defined');
+const module = argv.module;
+const org = argv.org;
+const token = argv.token;
+const user = argv.user;
 
-log(`goldslammer ${nconf.get('PACKAGE')}`);
+assert(module, 'node module not defined');
+assert(org, 'github organization not defined');
+assert(token, 'github token not defined');
+assert(user, 'github huser name not defined')
+
+log(`goldcatcher ${module}`);
+
+// TODO setup hub config
 
 // promise version of filter...resolve to boolean
 const promiseFilter = (arr, fn) => {
@@ -67,18 +70,18 @@ const promiseFilter = (arr, fn) => {
 };
 
 Q.fcall(() => {
-    return fetchRepos();
+    return fetchRepos(token, org);
 }).then(repos => {
     return repos.filter(({ language }) => /javascript/i.test(language));
 }).then(repos => {
     return promiseFilter(repos, ({ name }) => {
         return Q.fcall(() => {
-            return fetchRepoPackage(name);
+            return fetchRepoPackage(name, token, org);
         }).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => {
             return (
-                dependencies.hasOwnProperty(nconf.get('PACKAGE')) ||
-                devDependencies.hasOwnProperty(nconf.get('PACKAGE')) ||
-                peerDependencies.hasOwnProperty(nconf.get('PACKAGE'))
+                dependencies.hasOwnProperty(module) ||
+                devDependencies.hasOwnProperty(module) ||
+                peerDependencies.hasOwnProperty(module)
             );
         }).catch(() => false);
     });
@@ -90,25 +93,25 @@ Q.fcall(() => {
     const reviewers = {};
     return Q.all(repos.map(({ name }) => {
         // this repo depends on PACKAGE. update this repo
-        log(`updating ${name} ${nconf.get('PACKAGE')}`);
+        log(`updating ${name} ${module}`);
 
         log(`time to clone and update repo ${name}`);
         const cwd = `repos/${name}`;
         const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
         return Q.fcall(() => (
-            exec(`git clone --depth 1 git@github.com:${nconf.get('PORCH_REPO_BASE')}/${name}.git repos/${name}`)
+            exec(`git clone --depth 1 https://${token}@github.com/${org}/${name}.git repos/${name}`)
         )).then(() => (
-            exec(`git checkout -B goldslammer-${nconf.get('PACKAGE')}`, { cwd })
+            exec(`git checkout -B goldcatcher-${module}`, { cwd })
         )).then(() => (
-            exec(`${ncu} -a --packageFile package.json ${nconf.get('PACKAGE')}`, { cwd })
+            exec(`${ncu} -a --packageFile package.json ${module}`, { cwd })
         )).then(stdout => {
             const versions = stdout.match(semverRegex());
             assert(versions, `invalid npm-check-updates output ${stdout}`);
 
-            diffs[name] = `[v${versions[0]}...v${versions[1]}](http://github.com/porchdotcom/${nconf.get('PACKAGE')}/compare/v${versions[0]}...v${versions[1]})`;
+            diffs[name] = `[v${versions[0]}...v${versions[1]}](http://github.com/${org}/${module}/compare/v${versions[0]}...v${versions[1]})`;
 
             const fetchReleaseCommits = Q.fcall(() => (
-                compareCommits(`v${versions[0]}`, `v${versions[1]}`)
+                compareCommits(`v${versions[0]}`, `v${versions[1]}`, token, org, module)
             )).then(res => {
                 commits[name] = res.commits.map(({ author, ...commit }) => ({
                     ...commit,
@@ -117,7 +120,7 @@ Q.fcall(() => {
             });
 
             const fetchReleaseNotes = Q.fcall(() => (
-                fetchRepoPackageReleases()
+                fetchRepoPackageReleases(token, org, module)
             )).then(releases => (
                 releases.filter(release => semverRegex().test(release.tag_name)) // eslint-disable-line camelcase
             )).then(releases => (
@@ -143,19 +146,19 @@ Q.fcall(() => {
                 fetchReleaseNotes
             ]);
         }).then(() => (
-            exec(`git commit -a -m "Goldslammer bump of ${nconf.get('PACKAGE')}"`, { cwd })
+            exec(`git commit -a -m "goldcatcher bump of ${module}"`, { cwd })
         )).then(() => (
             exec('git push -fu origin HEAD', { cwd })
         )).then(() => (
-            exec(`hub pull-request -m "Goldslammer - ${nconf.get('PACKAGE')}"`, { cwd }).catch(noop)
+            exec(`hub pull-request -m "goldcatcher - ${module}"`, { cwd }).catch(noop)
         )).then(() => (
-            fetchRepoPackagePullRequest(name).then(packagePullRequests => {
+            fetchRepoPackagePullRequest(name, token, org, module).then(packagePullRequests => {
                 packagePullRequests.forEach(pr => pullRequests.push(pr));
             })
         )).then(() => (
             Q.all([
-                getContributors(name),
-                getMembers()
+                getContributors(name, token, org),
+                getMembers(token, org)
             ]).spread((contributors, members) => {
                 const contributorLogins = contributors.map(({ login }) => login);
                 const memberLogins = members.map(({ login }) => login);
@@ -185,7 +188,7 @@ Q.fcall(() => {
                 )),
                 '### Related',
                 `${pullRequests.filter(({ id }) => id !== pr.id).map(({ html_url }) => `- ${html_url}`).join('\n')}` // eslint-disable-line camelcase
-            ].join('\n\n'));
+            ].join('\n\n'), token, org);
         }));
     });
 }).then(() => (

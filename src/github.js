@@ -1,6 +1,5 @@
 import Q from 'q';
 import GitHubApi from 'github';
-import nconf from 'nconf';
 import debug from 'debug';
 import {
     memoize,
@@ -8,11 +7,11 @@ import {
 } from 'lodash';
 import assert from 'assert';
 
-const log = debug('porch:goldslammer:github');
+const log = debug('porch:goldcatcher:github');
 
 const PAGE_LENGTH = 100;
 
-export const fetchRepos = memoize(() => {
+export const fetchRepos = memoize((token, org) => {
     log('fetchRepos');
 
     const github = new GitHubApi({
@@ -20,13 +19,13 @@ export const fetchRepos = memoize(() => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const getReposPage = page => {
         const defer = Q.defer();
         github.repos.getFromOrg({
-            org: nconf.get('GITHUB_ORG'),
+            org: org,
             page: page,
             per_page: PAGE_LENGTH
         }, defer.makeNodeResolver());
@@ -41,7 +40,7 @@ export const fetchRepos = memoize(() => {
     return getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`));
 });
 
-export const fetchRepoPackage = memoize(repo => {
+export const fetchRepoPackage = memoize((repo, token, org) => {
     log(`fetchRepoPackage ${repo}`);
 
     const github = new GitHubApi({
@@ -49,12 +48,12 @@ export const fetchRepoPackage = memoize(repo => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const defer = Q.defer();
     github.repos.getContent({
-        user: nconf.get('GITHUB_ORG'),
+        user: org,
         repo,
         path: 'package.json'
     }, defer.makeNodeResolver());
@@ -63,7 +62,7 @@ export const fetchRepoPackage = memoize(repo => {
     });
 });
 
-export const fetchRepoPackagePullRequest = memoize(repo => {
+export const fetchRepoPackagePullRequest = memoize((repo, token, org, module) => {
     log(`fetchRepoPackagePullRequest ${repo}`);
 
     const github = new GitHubApi({
@@ -71,13 +70,13 @@ export const fetchRepoPackagePullRequest = memoize(repo => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const defer = Q.defer();
-    const head = `${nconf.get('GITHUB_ORG')}:goldslammer-${nconf.get('PACKAGE')}`;
+    const head = `${org}:goldcatcher-${module}`;
     github.pullRequests.getAll({
-        user: nconf.get('GITHUB_ORG'),
+        user: org,
         repo,
         state: 'open',
         head
@@ -87,7 +86,7 @@ export const fetchRepoPackagePullRequest = memoize(repo => {
     ));
 });
 
-export const updatePullRequestComment = memoize((pr, body) => {
+export const updatePullRequestComment = memoize((pr, body, token, org) => {
     log(`updatePullRequestComment ${pr.title} ${body}`);
 
     const github = new GitHubApi({
@@ -95,12 +94,12 @@ export const updatePullRequestComment = memoize((pr, body) => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const defer = Q.defer();
     github.pullRequests.update({
-        user: nconf.get('GITHUB_ORG'),
+        user: org,
         repo: pr.head.repo.name,
         number: pr.number,
         title: pr.title,
@@ -109,7 +108,7 @@ export const updatePullRequestComment = memoize((pr, body) => {
     return defer.promise;
 });
 
-export const fetchRepoPackageReleases = memoize(() => {
+export const fetchRepoPackageReleases = memoize((token, org, module) => {
     log('fetchRepoPackageReleases');
 
     const github = new GitHubApi({
@@ -117,14 +116,14 @@ export const fetchRepoPackageReleases = memoize(() => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const getReleasesPage = page => {
         const defer = Q.defer();
         github.releases.listReleases({
-            owner: nconf.get('GITHUB_ORG'),
-            repo: nconf.get('PACKAGE'),
+            owner: org,
+            repo: module,
             page: page,
             per_page: PAGE_LENGTH
         }, defer.makeNodeResolver());
@@ -139,7 +138,7 @@ export const fetchRepoPackageReleases = memoize(() => {
     return getReleasesPage(0).tap(releases => log(`${releases.length} releases found`));
 });
 
-export const compareCommits = memoize((base, head) => {
+export const compareCommits = memoize((base, head, token, org, module) => {
     log('compareCommits');
 
     const github = new GitHubApi({
@@ -147,20 +146,20 @@ export const compareCommits = memoize((base, head) => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const defer = Q.defer();
     github.repos.compareCommits({
-        user: nconf.get('GITHUB_ORG'),
-        repo: nconf.get('PACKAGE'),
+        user: org,
+        repo: module,
         base,
         head
     }, defer.makeNodeResolver());
     return defer.promise;
 }, (base, head) => JSON.stringify({ base, head }));
 
-export const getContributors = memoize(repo => {
+export const getContributors = memoize((repo, token, org) => {
     log(`getContributors ${repo}`);
 
     const github = new GitHubApi({
@@ -168,18 +167,18 @@ export const getContributors = memoize(repo => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const defer = Q.defer();
     github.repos.getContributors({
-        user: nconf.get('GITHUB_ORG'),
+        user: org,
         repo
     }, defer.makeNodeResolver());
     return defer.promise;
 });
 
-export const getMembers = memoize(() => {
+export const getMembers = memoize((token, org) => {
     log('getMembers');
 
     const github = new GitHubApi({
@@ -187,13 +186,13 @@ export const getMembers = memoize(() => {
     });
     github.authenticate({
         type: 'token',
-        token: nconf.get('GITHUB_API_TOKEN')
+        token: token
     });
 
     const getMembersPage = page => {
         const defer = Q.defer();
         github.orgs.getMembers({
-            org: nconf.get('GITHUB_ORG'),
+            org: org,
             page: page,
             per_page: PAGE_LENGTH
         }, defer.makeNodeResolver());
