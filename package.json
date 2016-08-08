@@ -5,15 +5,16 @@
   "scripts": {
     "clean": "rimraf repos",
     "lint": "eslint src",
-    "start": "DEBUG=porch:goldcatcher* babel-node src/index.js",
-    "test": "npm run clean && PACKAGE=porch-node-server npm run start"
+    "start": "DEBUG=porch:goldcatcher* babel-node src/index.js"
   },
   "bin": {
     "goldcatcher": "bin/index.js"
   },
   "dependencies": {
     "babel-cli": "^6.6.5",
+    "babel-polyfill": "^6.13.0",
     "babel-preset-porch": "^1.0.1",
+    "babel-register": "^6.11.6",
     "compare-versions": "^2.0.1",
     "debug": "^2.2.0",
     "github": "^0.2.4",
@@ -29,7 +30,7 @@
     "eslint-config-porch": "^5.0.0",
     "eslint-plugin-import": "^1.12.0",
     "eslint-plugin-mocha": "^2.1.0",
-    "eslint-plugin-react": "^4.3.0",
+    "eslint-plugin-react": "^6.0.0",
     "rimraf": "^2.5.2"
   }
 }
