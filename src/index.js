@@ -40,17 +40,17 @@ const exec = (cmd, options = {}) => {
     });
 };
 
-const argv = parseArgs(process.argv.slice(2));
-
-const module = argv.module;
-const org = argv.org;
-const token = argv.token;
-const user = argv.user;
+const {
+    module,
+    org,
+    token,
+    user
+} = parseArgs(process.argv.slice(2));
 
 assert(module, 'node module not defined');
 assert(org, 'github organization not defined');
 assert(token, 'github token not defined');
-assert(user, 'github huser name not defined')
+assert(user, 'github huser name not defined');
 
 log(`goldcatcher ${module}`);
 
@@ -74,6 +74,8 @@ Q.fcall(() => {
     return fetchRepos(token, org);
 }).then(repos => {
     return repos.filter(({ language }) => /javascript/i.test(language));
+}).then(repos => {
+    return repos.filter(({ permissions: { push }}) => !!push);
 }).then(repos => {
     return promiseFilter(repos, ({ name }) => {
         return Q.fcall(() => {
