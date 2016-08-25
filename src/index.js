@@ -12,20 +12,18 @@ const HELPSCORE_SCM = 'helpscore-scm';
 const log = debug('porch:goldcatcher');
 
 const {
-    module: packageName,
-    org,
-    token,
-    user
+    'package-name': packageName,
+    'github-org': githubOrg,
+    'github-token': githubToken
 } = parseArgs(process.argv.slice(2));
 
 assert(packageName, 'npm module not defined');
-assert(org, 'github organization not defined');
-assert(token, 'github token not defined');
-assert(user, 'github huser name not defined');
+assert(githubOrg, 'github organization not defined');
+assert(githubToken, 'github token not defined');
 
 log(`goldcatcher ${packageName}`);
 
-const github = new GitHub({ org, token });
+const github = new GitHub({ org: githubOrg, token: githubToken });
 
 Q.fcall(() => (
     github.fetchRepos()
@@ -52,7 +50,7 @@ Q.fcall(() => (
         const cwd = `repos/${name}`;
         const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
         return Q.fcall(() => (
-            exec(`git clone --depth 1 https://${token}@github.com/${org}/${name}.git repos/${name}`)
+            exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${name}.git repos/${name}`)
         )).then(() => (
             exec(`git checkout -B ${branch}`, { cwd })
         )).then(() => (
@@ -61,7 +59,7 @@ Q.fcall(() => (
             const versions = stdout.match(semverRegex());
             assert(versions, `invalid npm-check-updates output ${stdout}`);
 
-            const diff = `[v${versions[0]}...v${versions[1]}](http://github.com/${org}/${packageName}/compare/v${versions[0]}...v${versions[1]})`;
+            const diff = `[v${versions[0]}...v${versions[1]}](http://github.com/${githubOrg}/${packageName}/compare/v${versions[0]}...v${versions[1]})`;
 
             return Q.fcall(() => (
                 github.compareCommits({
