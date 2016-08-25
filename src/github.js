@@ -1,208 +1,107 @@
 import Q from 'q';
 import GitHubApi from 'github';
 import debug from 'debug';
-import {
-    memoize,
-    uniqBy
-} from 'lodash';
+import { uniqBy } from 'lodash';
 import assert from 'assert';
 
 const log = debug('porch:goldcatcher:github');
 
 const PAGE_LENGTH = 100;
 
-export const fetchRepos = memoize((token, org) => {
-    log('fetchRepos');
-
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
-
-    const getReposPage = page => {
-        const defer = Q.defer();
-        github.repos.getFromOrg({
-            org: org,
-            page: page,
-            per_page: PAGE_LENGTH
-        }, defer.makeNodeResolver());
-        return defer.promise.then(pageRepos => {
-            if (pageRepos.length === PAGE_LENGTH) {
-                return getReposPage(page + 1).then(nextPageRepos => [...pageRepos, ...nextPageRepos]);
-            }
-            return pageRepos;
+export default class GitHub {
+    constructor({ token, org }) {
+        this.api = new GitHubApi({
+            version: '3.0.0'
         });
-    };
-
-    return getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`));
-});
-
-export const fetchRepoPackage = memoize((repo, token, org) => {
-    log(`fetchRepoPackage ${repo}`);
-
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
-
-    const defer = Q.defer();
-    github.repos.getContent({
-        user: org,
-        repo,
-        path: 'package.json'
-    }, defer.makeNodeResolver());
-    return defer.promise.then(({ content, encoding }) => {
-        return JSON.parse(new Buffer(content, encoding).toString());
-    });
-});
-
-export const fetchRepoPackagePullRequest = memoize((repo, token, org, module) => {
-    log(`fetchRepoPackagePullRequest ${repo}`);
-
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
-
-    const defer = Q.defer();
-    const head = `${org}:goldcatcher-${module}`;
-    github.pullRequests.getAll({
-        user: org,
-        repo,
-        state: 'open',
-        head
-    }, defer.makeNodeResolver());
-    return defer.promise.tap(prs => (
-        assert.equal(prs.length, 1, `${head} not found`)
-    ));
-});
-
-export const updatePullRequestComment = memoize((pr, body, token, org) => {
-    log(`updatePullRequestComment ${pr.title} ${body}`);
-
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
-
-    const defer = Q.defer();
-    github.pullRequests.update({
-        user: org,
-        repo: pr.head.repo.name,
-        number: pr.number,
-        title: pr.title,
-        body: body
-    }, defer.makeNodeResolver());
-    return defer.promise;
-});
-
-export const fetchRepoPackageReleases = memoize((token, org, module) => {
-    log('fetchRepoPackageReleases');
-
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
-
-    const getReleasesPage = page => {
-        const defer = Q.defer();
-        github.releases.listReleases({
-            owner: org,
-            repo: module,
-            page: page,
-            per_page: PAGE_LENGTH
-        }, defer.makeNodeResolver());
-        return defer.promise.then(pageReleases => {
-            if (pageReleases.length === PAGE_LENGTH) {
-                return getReleasesPage(page + 1).then(nextPageReleases => [...pageReleases, ...nextPageReleases]);
-            }
-            return pageReleases;
+        this.api.authenticate({
+            type: 'token',
+            token: token
         });
-    };
+        this.org = org;
+    }
+    fetchRepos() {
+        log('fetchRepos');
 
-    return getReleasesPage(0).tap(releases => log(`${releases.length} releases found`));
-});
+        const getReposPage = page => {
+            const defer = Q.defer();
+            this.api.repos.getFromOrg({
+                org: this.org,
+                page: page,
+                per_page: PAGE_LENGTH
+            }, defer.makeNodeResolver());
+            return defer.promise.then(pageRepos => {
+                if (pageRepos.length === PAGE_LENGTH) {
+                    return getReposPage(page + 1).then(nextPageRepos => [...pageRepos, ...nextPageRepos]);
+                }
+                return pageRepos;
+            });
+        };
 
-export const compareCommits = memoize((base, head, token, org, module) => {
-    log('compareCommits');
+        return getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`));
+    }
 
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
+    fetchRepoDependencies({ repo }) {
+        log(`fetchRepoPackage ${repo}`);
 
-    const defer = Q.defer();
-    github.repos.compareCommits({
-        user: org,
-        repo: module,
-        base,
-        head
-    }, defer.makeNodeResolver());
-    return defer.promise;
-}, (base, head) => JSON.stringify({ base, head }));
-
-export const getContributors = memoize((repo, token, org) => {
-    log(`getContributors ${repo}`);
-
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
-
-    const defer = Q.defer();
-    github.repos.getContributors({
-        user: org,
-        repo
-    }, defer.makeNodeResolver());
-    return defer.promise;
-});
-
-export const getMembers = memoize((token, org) => {
-    log('getMembers');
-
-    const github = new GitHubApi({
-        version: '3.0.0'
-    });
-    github.authenticate({
-        type: 'token',
-        token: token
-    });
-
-    const getMembersPage = page => {
         const defer = Q.defer();
-        github.orgs.getMembers({
-            org: org,
-            page: page,
-            per_page: PAGE_LENGTH
+        this.api.repos.getContent({
+            user: this.org,
+            repo,
+            path: 'package.json'
         }, defer.makeNodeResolver());
-        return defer.promise.then(pageMembers => {
-            if (pageMembers.length === PAGE_LENGTH) {
-                return getMembersPage(page + 1).then(nextPageMembers => [...pageMembers, ...nextPageMembers]);
-            }
-            return pageMembers;
+        return defer.promise.then(({ content, encoding }) => {
+            return JSON.parse(new Buffer(content, encoding).toString());
         });
-    };
+    }
 
-    return getMembersPage(0).tap(members => log(`${members.length} members found`));
-});
+    compareCommits({ base, head, repo }) {
+        log('compareCommits');
+        const defer = Q.defer();
+        this.api.repos.compareCommits({
+            user: this.org,
+            repo,
+            base,
+            head
+        }, defer.makeNodeResolver());
+        return defer.promise;
+    }
+
+    createPullRequest({ body, title, head, repo }) {
+        log(`createPullRequest ${title}, ${head}, ${repo}`);
+
+        return Q.fcall(() => {
+            const defer = Q.defer();
+            this.api.pullRequests.getAll({
+                user: this.org,
+                repo,
+                state: 'open',
+                head: `${this.org}:${head}` // https://mikedeboer.github.io/node-github/#api-pullRequests-getAll
+            }, defer.makeNodeResolver());
+            return defer.promise;
+        }).then(prs => {
+            const defer = Q.defer();
+            if (!!prs.length) {
+                assert.equal(prs.length, 1, `${head} not found`);
+
+                const [{ number }] = prs;
+                this.api.pullRequests.update({
+                    user: this.org,
+                    repo,
+                    number,
+                    title,
+                    body
+                }, defer.makeNodeResolver());
+            } else {
+                this.api.pullRequests.create({
+                    user: this.org,
+                    repo,
+                    title,
+                    base: 'master',
+                    head,
+                    body
+                }, defer.makeNodeResolver());
+            }
+            return defer.promise;
+        });
+    }
+}
