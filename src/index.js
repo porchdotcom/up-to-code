@@ -6,6 +6,7 @@ import debug from 'debug';
 import assert from 'assert';
 import semverRegex from 'semver-regex';
 import exec from './exec';
+import { filter } from './promises';
 
 const HELPSCORE_SCM = 'helpscore-scm';
 const log = debug('porch:goldcatcher');
@@ -26,20 +27,6 @@ log(`goldcatcher ${dependency}`);
 
 const github = new GitHub({ org, token });
 
-// promise version of filter...resolve to boolean
-const promiseFilter = (arr, fn) => {
-    const ret = [];
-    return Q.all(arr.map(elem => {
-        return Q.fcall(() => {
-            return fn(elem);
-        }).then(include => {
-            if (include) {
-                ret.push(elem);
-            }
-        });
-    })).thenResolve(ret);
-};
-
 Q.fcall(() => (
     github.fetchRepos()
 )).then(repos => (
@@ -47,7 +34,7 @@ Q.fcall(() => (
 )).then(repos => (
     repos.filter(({ permissions: { push }}) => !!push)
 )).then(repos => (
-    promiseFilter(repos, ({ name: repo }) => (
+    filter(repos, ({ name: repo }) => (
         Q.fcall(() => (
             github.fetchRepoDependencies({ repo })
         )).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
