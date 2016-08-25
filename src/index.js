@@ -12,18 +12,18 @@ const HELPSCORE_SCM = 'helpscore-scm';
 const log = debug('porch:goldcatcher');
 
 const {
-    dependency,
+    module: packageName,
     org,
     token,
     user
 } = parseArgs(process.argv.slice(2));
 
-assert(dependency, 'node dependency not defined');
+assert(packageName, 'npm module not defined');
 assert(org, 'github organization not defined');
 assert(token, 'github token not defined');
 assert(user, 'github huser name not defined');
 
-log(`goldcatcher ${dependency}`);
+log(`goldcatcher ${packageName}`);
 
 const github = new GitHub({ org, token });
 
@@ -36,20 +36,19 @@ Q.fcall(() => (
 )).then(repos => (
     filter(repos, ({ name: repo }) => (
         Q.fcall(() => (
-            github.fetchRepoDependencies({ repo })
+            github.fetchRepoPackage({ repo })
         )).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
-            dependencies.hasOwnProperty(dependency) ||
-            devDependencies.hasOwnProperty(dependency) ||
-            peerDependencies.hasOwnProperty(dependency)
+            dependencies.hasOwnProperty(packageName) ||
+            devDependencies.hasOwnProperty(packageName) ||
+            peerDependencies.hasOwnProperty(packageName)
         )).catch(() => false)
     ))
 )).then(repos => (
     Q.all(repos.map(({ name }) => {
-        // this repo depends on PACKAGE. update this repo
-        log(`updating ${name} ${dependency}`);
+        log(`updating ${name} ${packageName}`);
 
         log(`time to clone and update repo ${name}`);
-        const branch = `goldcatcher-${dependency}`;
+        const branch = `goldcatcher-${packageName}`;
         const cwd = `repos/${name}`;
         const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
         return Q.fcall(() => (
@@ -57,18 +56,18 @@ Q.fcall(() => (
         )).then(() => (
             exec(`git checkout -B ${branch}`, { cwd })
         )).then(() => (
-            exec(`${ncu} -a --packageFile package.json ${dependency}`, { cwd })
+            exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
         )).then(stdout => {
             const versions = stdout.match(semverRegex());
             assert(versions, `invalid npm-check-updates output ${stdout}`);
 
-            const diff = `[v${versions[0]}...v${versions[1]}](http://github.com/${org}/${dependency}/compare/v${versions[0]}...v${versions[1]})`;
+            const diff = `[v${versions[0]}...v${versions[1]}](http://github.com/${org}/${packageName}/compare/v${versions[0]}...v${versions[1]})`;
 
             return Q.fcall(() => (
                 github.compareCommits({
                     base: `v${versions[0]}`,
                     head: `v${versions[1]}`,
-                    repo: dependency
+                    repo: packageName
                 })
             )).then(res => {
                 const commits = res.commits.map(({ author, ...commit }) => ({
@@ -91,13 +90,13 @@ Q.fcall(() => (
             });
         }).then(body => (
             Q.fcall(() => (
-                exec(`git commit -a -m "Goldcatcher bump of ${dependency}"`, { cwd })
+                exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
             )).then(() => (
                 exec('git push -fu origin HEAD', { cwd })
             )).then(() => (
                 github.createPullRequest({
                     body,
-                    title: `Goldcatcher - ${dependency}`,
+                    title: `Goldcatcher - ${packageName}`,
                     head: branch,
                     repo: name
                 })

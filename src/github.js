@@ -40,7 +40,7 @@ export default class GitHub {
         return getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`));
     }
 
-    fetchRepoDependencies({ repo }) {
+    fetchRepoPackage({ repo }) {
         log(`fetchRepoPackage ${repo}`);
 
         const defer = Q.defer();
