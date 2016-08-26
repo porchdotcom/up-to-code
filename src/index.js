@@ -8,7 +8,6 @@ import semverRegex from 'semver-regex';
 import exec from './exec';
 import { filter } from './promises';
 
-const HELPSCORE_SCM = 'helpscore-scm';
 const log = debug('porch:goldcatcher');
 
 const {
@@ -59,32 +58,10 @@ Q.fcall(() => (
             const versions = stdout.match(semverRegex());
             assert(versions, `invalid npm-check-updates output ${stdout}`);
 
-            const diff = `[v${versions[0]}...v${versions[1]}](http://github.com/${githubOrg}/${packageName}/compare/v${versions[0]}...v${versions[1]})`;
-
-            return Q.fcall(() => (
-                github.compareCommits({
-                    base: `v${versions[0]}`,
-                    head: `v${versions[1]}`,
-                    repo: packageName
-                })
-            )).then(res => {
-                const commits = res.commits.map(({ author, ...commit }) => ({
-                    ...commit,
-                    author: author || { login: 'unknown' }
-                })).reverse();
-
-                const body = [
-                    '### Diff',
-                    diff,
-                    '### Commits',
-                    commits.map(({ commit, html_url }) => ( // eslint-disable-line camelcase
-                        `${(
-                            commit.author.name === HELPSCORE_SCM ? '' : `- __${commit.author.name}__`
-                        )}- [${commit.message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
-                    )).join('\n')
-                ].join('\n\n');
-
-                return body;
+            return github.createPackageChangeMarkdown({
+                repo: packageName,
+                base: `v${versions[0]}`,
+                head: `v${versions[1]}`
             });
         }).then(body => (
             Q.fcall(() => (

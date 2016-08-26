@@ -7,6 +7,7 @@ import assert from 'assert';
 const log = debug('porch:goldcatcher:github');
 
 const PAGE_LENGTH = 100;
+const HELPSCORE_SCM = 'helpscore-scm';
 
 export default class GitHub {
     constructor({ token, org }) {
@@ -54,18 +55,6 @@ export default class GitHub {
         });
     }
 
-    compareCommits({ base, head, repo }) {
-        log('compareCommits');
-        const defer = Q.defer();
-        this.api.repos.compareCommits({
-            user: this.org,
-            repo,
-            base,
-            head
-        }, defer.makeNodeResolver());
-        return defer.promise;
-    }
-
     createPullRequest({ body, title, head, repo }) {
         log(`createPullRequest ${title}, ${head}, ${repo}`);
 
@@ -103,5 +92,37 @@ export default class GitHub {
             }
             return defer.promise;
         });
+    }
+
+    createPackageChangeMarkdown({ repo, head, base }) {
+        log(`createPackageChangeMarkdown ${base}, ${head}, ${repo}`);
+
+        return Q.fcall(() => {
+            const defer = Q.defer();
+            this.api.repos.compareCommits({
+                user: this.org,
+                repo,
+                base,
+                head
+            }, defer.makeNodeResolver());
+            return defer.promise;
+        }).then(({ commits }) => ([
+            '### Diff',
+            `[${base}...${head}](http://github.com/${this.org}/${repo}/compare/${base}...${head})`,
+            '### Commits',
+            commits.map(({
+                commit: {
+                    author: {
+                        name
+                    } = {},
+                    message
+                },
+                html_url // eslint-disable-line camelcase
+            }) => (
+                `${(
+                    name === HELPSCORE_SCM ? '' : `- __${name}__`
+                )}- [${message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
+            )).reverse().join('\n')
+        ].join('\n\n')));
     }
 }
