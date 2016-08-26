@@ -21,11 +21,19 @@ export default class GitLab {
                 'PRIVATE-TOKEN': token
             }
         });
+        this.host = host;
         this.org = org;
     }
 
     isRepo({ repo }) {
         log(`isRepo ${repo}`);
+
+        return this.getRepo({ repo }).then(r => !!r);
+    }
+
+    getRepo({ repo }) {
+        log(`getRepo ${repo}`);
+
         return Q.fcall(() => (
             this.fetchRepos()
         )).then(repos => (
@@ -34,15 +42,11 @@ export default class GitLab {
     }
 
     fetchRepos() {
-
         log('fetchRepos');
 
         const getReposPage = page => {
             const defer = Q.defer();
-            this.api(url.format({
-                pathname: '/projects',
-                query: { page, per_page: PAGE_LENGTH }
-            }), defer.makeNodeResolver());
+            this.api(`/projects?page=${page}&per_page=${PAGE_LENGTH}`, defer.makeNodeResolver());
             return defer.promise.get(1).then(pageRepos => {
                 if (pageRepos.length === PAGE_LENGTH) {
                     return getReposPage(page + 1).then(nextPageRepos => [...pageRepos, ...nextPageRepos]);
@@ -62,7 +66,26 @@ export default class GitLab {
         ));
     }
 
-    createPackageChangeMarkdown({ repo }) {
-        return Q.resolve(`__${repo}__ is hosted on gitlab. Support for commits/diff information coming soon.`);
+    createPackageChangeMarkdown({ base, head, repo }) {
+        log(`createPackageChangeMarkdown ${base} ${head} ${repo}`);
+
+        return Q.fcall(() => (
+            this.getRepo({ repo })
+        )).then(({ id }) => {
+            const defer = Q.defer();
+            this.api(`/projects/${id}/repository/compare?from=${base}&to=${head}`, defer.makeNodeResolver());
+            return defer.promise.get(1);
+        }).then(({ commits }) => ([
+            '### Diff',
+            `[${base}...${head}](https://${this.host}/${this.org}/${repo}/compare/${base}...${head})`,
+            '### Commits',
+            commits.map(({
+                id,
+                author_name: authorName,
+                title
+            }) => (
+                `${authorName}- [${title}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
+            )).reverse().join('\n')
+        ].join('\n\n')));
     }
 }
