@@ -21,7 +21,19 @@ export default class GitHub {
         });
         this.org = org;
     }
-    fetchDependantRepos({ packageName }) {
+
+    isRepo({ repo }) {
+        log(`isRepo ${repo}`);
+        return Q.fcall(() => (
+            this.fetchRepos()
+        )).then(repos => (
+            repos.filter(({ permissions: { push }}) => !!push)
+        )).then(repos => (
+            repos.find(({ name }) => name === repo)
+        ));
+    }
+
+    fetchRepos() {
         log('fetchRepos');
 
         const getReposPage = page => {
@@ -41,6 +53,14 @@ export default class GitHub {
 
         return Q.fcall(() => (
             getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`))
+        ));
+    }
+
+    fetchDependantRepos({ packageName }) {
+        log(`fetchDependantRepos ${packageName}`);
+
+        return Q.fcall(() => (
+            this.fetchRepos()
         )).then(repos => (
             repos.filter(({ language }) => /javascript/i.test(language))
         )).then(repos => (
