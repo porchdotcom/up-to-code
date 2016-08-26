@@ -58,7 +58,7 @@ const getPackageChangeMarkdown = ({ repo, base, head }) => (
 const branch = `goldcatcher-${packageName}`;
 
 Q.fcall(() => Q.all([
-    [], //github.fetchDependantRepos({ packageName }),
+    github.fetchDependantRepos({ packageName }),
     gitlab.fetchDependantRepos({ packageName })
 ])).spread((githubRepos, gitlabRepos) => (
     Q.all([

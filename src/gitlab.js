@@ -23,13 +23,35 @@ export default class GitLab {
                 'PRIVATE-TOKEN': token
             }
         });
-        this.api = memoize(path => {
+
+        this.api = memoize(options => {
             const defer = Q.defer();
-            api(path, defer.makeNodeResolver());
+            api(options, defer.makeNodeResolver());
             return defer.promise.spread((res, body) => {
-                assert.equal(res.statusCode, 200);
+                assert(res.statusCode < 400, body);
                 return body;
             });
+        });
+
+        this.paginate = memoize(options => {
+            const getPage = page => (
+                Q.fcall(() => (
+                    this.api({
+                        ...options,
+                        qs: {
+                            page,
+                            per_page: PAGE_LENGTH
+                        }
+                    })
+                )).then(res => {
+                    if (res.length === PAGE_LENGTH) {
+                        return getPage(page + 1).then(nextPageRepos => [...res, ...nextPageRepos]);
+                    }
+                    return res;
+                })
+            );
+
+            return getPage(0);
         });
         this.host = host;
         this.org = org;
@@ -53,20 +75,8 @@ export default class GitLab {
 
     fetchRepos() {
         log('fetchRepos');
-
-        const getReposPage = page => (
-            Q.fcall(() => (
-                this.api(`/projects?page=${page}&per_page=${PAGE_LENGTH}`)
-            )).then(pageRepos => {
-                if (pageRepos.length === PAGE_LENGTH) {
-                    return getReposPage(page + 1).then(nextPageRepos => [...pageRepos, ...nextPageRepos]);
-                }
-                return pageRepos;
-            })
-        );
-
         return Q.fcall(() => (
-            getReposPage(0)
+            this.paginate({ uri: '/projects' })
         )).then(repos => (
             repos.filter(({ namespace: { name }}) => name === this.org)
         )).then(repos => (
@@ -82,7 +92,9 @@ export default class GitLab {
         return Q.fcall(() => (
             this.fetchRepo({ repo })
         )).then(({ id }) => (
-            this.api(`/projects/${id}/repository/compare?from=${base}&to=${head}`)
+            this.api({
+                uri: `/projects/${id}/repository/compare?from=${base}&to=${head}`
+            })
         )).then(({ commits }) => ([
             '### Diff',
             `[${base}...${head}](https://${this.host}/${this.org}/${repo}/compare/${base}...${head})`,
@@ -92,7 +104,7 @@ export default class GitLab {
                 author_name: authorName,
                 title
             }) => (
-                `${authorName}- [${title}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
+                `- ${authorName}- [${title}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
             )).reverse().join('\n')
         ].join('\n\n')));
     }
@@ -105,7 +117,9 @@ export default class GitLab {
         )).then(repos => (
             filter(repos, ({ id }) => (
                 Q.fcall(() => (
-                    this.api(`/projects/${id}/repository/blobs/master?filepath=package.json`)
+                    this.api({
+                        uri: `/projects/${id}/repository/blobs/master?filepath=package.json`
+                    })
                 )).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
                     dependencies.hasOwnProperty(packageName) ||
                     devDependencies.hasOwnProperty(packageName) ||
@@ -118,8 +132,50 @@ export default class GitLab {
     createPullRequest({ body, title, head, repo }) {
         log(`createPullRequest ${title}, ${head}, ${repo}`);
 
-        return Q.fcall(() => {
-            throw new Error('not supported yet');
-        });
+        return Q.fcall(() => (
+            this.fetchRepo({ repo })
+        )).then(({ id }) => (
+            Q.fcall(() => (
+                this.paginate({
+                    uri: `/projects/${id}/merge_requests`
+                })
+            )).then(mergeRequests => (
+                mergeRequests.filter(({
+                    target_branch: targetBranch,
+                    source_branch: sourceBranch,
+                    state
+                }) => (
+                    targetBranch === 'master' &&
+                    sourceBranch === head &&
+                    state === 'opened'
+                ))
+            )).then(mrs => {
+                log(`merge requests ${JSON.stringify(mrs, null, 4)}`);
+                if (!!mrs.length) {
+                    assert.equal(mrs.length, 1, `${head} not found`);
+
+                    const [mr] = mrs;
+                    return this.api({
+                        method: 'PUT',
+                        uri: `/projects/${id}/merge_requests/${mr.id}`,
+                        body: {
+                            title,
+                            description: body
+                        }
+                    });
+                } else {
+                    return this.api({
+                        method: 'POST',
+                        uri: `/projects/${id}/merge_requests`,
+                        body: {
+                            source_branch: head,
+                            target_branch: 'master',
+                            title,
+                            description: body
+                        }
+                    });
+                }
+            })
+        ));
     }
 }
