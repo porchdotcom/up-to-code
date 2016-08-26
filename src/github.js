@@ -3,6 +3,7 @@ import GitHubApi from 'github';
 import debug from 'debug';
 import { uniqBy } from 'lodash';
 import assert from 'assert';
+import { filter } from './promises';
 
 const log = debug('porch:goldcatcher:github');
 
@@ -20,7 +21,7 @@ export default class GitHub {
         });
         this.org = org;
     }
-    fetchRepos() {
+    fetchDependantRepos({ packageName }) {
         log('fetchRepos');
 
         const getReposPage = page => {
@@ -38,21 +39,31 @@ export default class GitHub {
             });
         };
 
-        return getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`));
-    }
-
-    fetchRepoPackage({ repo }) {
-        log(`fetchRepoPackage ${repo}`);
-
-        const defer = Q.defer();
-        this.api.repos.getContent({
-            user: this.org,
-            repo,
-            path: 'package.json'
-        }, defer.makeNodeResolver());
-        return defer.promise.then(({ content, encoding }) => {
-            return JSON.parse(new Buffer(content, encoding).toString());
-        });
+        return Q.fcall(() => (
+            getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`))
+        )).then(repos => (
+            repos.filter(({ language }) => /javascript/i.test(language))
+        )).then(repos => (
+            repos.filter(({ permissions: { push }}) => !!push)
+        )).then(repos => (
+            filter(repos, ({ name: repo }) => (
+                Q.fcall(() => {
+                    const defer = Q.defer();
+                    this.api.repos.getContent({
+                        user: this.org,
+                        repo,
+                        path: 'package.json'
+                    }, defer.makeNodeResolver());
+                    return defer.promise.then(({ content, encoding }) => {
+                        return JSON.parse(new Buffer(content, encoding).toString());
+                    });
+                }).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
+                    dependencies.hasOwnProperty(packageName) ||
+                    devDependencies.hasOwnProperty(packageName) ||
+                    peerDependencies.hasOwnProperty(packageName)
+                )).catch(() => false)
+            ))
+        ));
     }
 
     createPullRequest({ body, title, head, repo }) {

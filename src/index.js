@@ -6,7 +6,6 @@ import debug from 'debug';
 import assert from 'assert';
 import semverRegex from 'semver-regex';
 import exec from './exec';
-import { filter } from './promises';
 
 const log = debug('porch:goldcatcher');
 
@@ -25,21 +24,7 @@ log(`goldcatcher ${packageName}`);
 const github = new GitHub({ org: githubOrg, token: githubToken });
 
 Q.fcall(() => (
-    github.fetchRepos()
-)).then(repos => (
-    repos.filter(({ language }) => /javascript/i.test(language))
-)).then(repos => (
-    repos.filter(({ permissions: { push }}) => !!push)
-)).then(repos => (
-    filter(repos, ({ name: repo }) => (
-        Q.fcall(() => (
-            github.fetchRepoPackage({ repo })
-        )).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
-            dependencies.hasOwnProperty(packageName) ||
-            devDependencies.hasOwnProperty(packageName) ||
-            peerDependencies.hasOwnProperty(packageName)
-        )).catch(() => false)
-    ))
+    github.fetchDependantRepos({ packageName })
 )).then(repos => (
     Q.all(repos.map(({ name }) => {
         log(`updating ${name} ${packageName}`);
