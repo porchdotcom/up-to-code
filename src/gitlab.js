@@ -1,8 +1,10 @@
+import assert from 'assert';
 import Q from 'q';
 import debug from 'debug';
 import request from 'request';
 import url from 'url';
-import { uniqBy } from 'lodash';
+import { memoize, uniqBy } from 'lodash';
+import { filter } from './promises';
 
 const PAGE_LENGTH = 100;
 
@@ -10,7 +12,7 @@ const log = debug('porch:goldcatcher:gitlab');
 
 export default class GitLab {
     constructor({ token, org, host }) {
-        this.api = request.defaults({
+        const api = request.defaults({
             json: true,
             baseUrl: url.format({
                 protocol: 'https:',
@@ -21,6 +23,14 @@ export default class GitLab {
                 'PRIVATE-TOKEN': token
             }
         });
+        this.api = memoize(path => {
+            const defer = Q.defer();
+            api(path, defer.makeNodeResolver());
+            return defer.promise.spread((res, body) => {
+                assert.equal(res.statusCode, 200);
+                return body;
+            });
+        });
         this.host = host;
         this.org = org;
     }
@@ -28,11 +38,11 @@ export default class GitLab {
     isRepo({ repo }) {
         log(`isRepo ${repo}`);
 
-        return this.getRepo({ repo }).then(r => !!r);
+        return this.fetchRepo({ repo }).then(r => !!r);
     }
 
-    getRepo({ repo }) {
-        log(`getRepo ${repo}`);
+    fetchRepo({ repo }) {
+        log(`fetchRepo ${repo}`);
 
         return Q.fcall(() => (
             this.fetchRepos()
@@ -44,16 +54,16 @@ export default class GitLab {
     fetchRepos() {
         log('fetchRepos');
 
-        const getReposPage = page => {
-            const defer = Q.defer();
-            this.api(`/projects?page=${page}&per_page=${PAGE_LENGTH}`, defer.makeNodeResolver());
-            return defer.promise.get(1).then(pageRepos => {
+        const getReposPage = page => (
+            Q.fcall(() => (
+                this.api(`/projects?page=${page}&per_page=${PAGE_LENGTH}`)
+            )).then(pageRepos => {
                 if (pageRepos.length === PAGE_LENGTH) {
                     return getReposPage(page + 1).then(nextPageRepos => [...pageRepos, ...nextPageRepos]);
                 }
                 return pageRepos;
-            });
-        };
+            })
+        );
 
         return Q.fcall(() => (
             getReposPage(0)
@@ -70,12 +80,10 @@ export default class GitLab {
         log(`createPackageChangeMarkdown ${base} ${head} ${repo}`);
 
         return Q.fcall(() => (
-            this.getRepo({ repo })
-        )).then(({ id }) => {
-            const defer = Q.defer();
-            this.api(`/projects/${id}/repository/compare?from=${base}&to=${head}`, defer.makeNodeResolver());
-            return defer.promise.get(1);
-        }).then(({ commits }) => ([
+            this.fetchRepo({ repo })
+        )).then(({ id }) => (
+            this.api(`/projects/${id}/repository/compare?from=${base}&to=${head}`)
+        )).then(({ commits }) => ([
             '### Diff',
             `[${base}...${head}](https://${this.host}/${this.org}/${repo}/compare/${base}...${head})`,
             '### Commits',
@@ -87,5 +95,31 @@ export default class GitLab {
                 `${authorName}- [${title}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
             )).reverse().join('\n')
         ].join('\n\n')));
+    }
+
+    fetchDependantRepos({ packageName }) {
+        log(`fetchDependantRepos ${packageName}`);
+
+        return Q.fcall(() => (
+            this.fetchRepos()
+        )).then(repos => (
+            filter(repos, ({ id }) => (
+                Q.fcall(() => (
+                    this.api(`/projects/${id}/repository/blobs/master?filepath=package.json`)
+                )).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
+                    dependencies.hasOwnProperty(packageName) ||
+                    devDependencies.hasOwnProperty(packageName) ||
+                    peerDependencies.hasOwnProperty(packageName)
+                )).catch(() => false)
+            ))
+        ));
+    }
+
+    createPullRequest({ body, title, head, repo }) {
+        log(`createPullRequest ${title}, ${head}, ${repo}`);
+
+        return Q.fcall(() => {
+            throw new Error('not supported yet');
+        });
     }
 }
