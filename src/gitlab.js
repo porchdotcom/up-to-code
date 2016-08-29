@@ -144,7 +144,6 @@ export default class GitLab {
                     state === 'opened'
                 ))
             )).then(mrs => {
-                log(`merge requests ${JSON.stringify(mrs, null, 4)}`);
                 if (!!mrs.length) {
                     assert.equal(mrs.length, 1, `${head} not found`);
 
