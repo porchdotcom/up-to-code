@@ -37,7 +37,6 @@ const github = new GitHub({ org: githubOrg, token: githubToken });
 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
 
 const getPackageChangeMarkdown = ({ base, head }) => (
-
     Q.fcall(() => (
         exec(`npm view ${packageName} repository.url`)
     )).then(stdout => (
@@ -67,8 +66,8 @@ Q.fcall(() => Q.all([
     github.fetchDependantRepos({ packageName }),
     gitlab.fetchDependantRepos({ packageName })
 ])).spread((githubRepos, gitlabRepos) => (
-    Q.all([
-        Q.all(githubRepos.map(({ name }) => {
+    Q.allSettled([
+        ...githubRepos.map(({ name }) => {
             log(`time to clone and update github repo ${name}`);
             const cwd = `repos/github/${name}`;
             const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
@@ -100,13 +99,9 @@ Q.fcall(() => Q.all([
                         repo: name
                     })
                 ))
-            )).catch(err => (
-                log(`err ${name} ${err.message} ${err.stack}`)
-            )).finally(() => (
-                exec(`rm -rf ${path.resolve(__dirname, cwd)}`)
             ));
-        })),
-        Q.all(gitlabRepos.map(({ name }) => {
+        }),
+        ...gitlabRepos.map(({ name }) => {
             log(`time to clone and update gitlab repo ${name}`);
             const cwd = `repos/gitlab/${name}`;
             const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
@@ -138,15 +133,13 @@ Q.fcall(() => Q.all([
                         repo: name
                     })
                 ))
-            )).catch(err => (
-                log(`err ${name} ${err.message} ${err.stack}`)
-            )).finally(() => (
-                exec(`rm -rf ${path.resolve(__dirname, cwd)}`)
             ));
-        }))
+        })
     ])
-)).then(() => (
-    log('success')
-)).catch(err => (
-    log(`err ${err.stack}`)
-));
+)).then(() => {
+    log('success');
+    process.exit(0);
+}).catch(err => {
+    log(`err ${err.stack}`);
+    process.exit(1);
+});
