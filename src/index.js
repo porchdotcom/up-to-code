@@ -7,8 +7,11 @@ import debug from 'debug';
 import assert from 'assert';
 import semverRegex from 'semver-regex';
 import exec from './exec';
+import url from 'url';
 
 const log = debug('porch:goldcatcher');
+
+const GITHUB_HOSTNAME = 'github.com';
 
 const {
     'package-name': packageName,
@@ -33,21 +36,24 @@ log(`goldcatcher ${packageName}`);
 const github = new GitHub({ org: githubOrg, token: githubToken });
 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
 
-const getPackageChangeMarkdown = ({ repo, base, head }) => (
+const getPackageChangeMarkdown = ({ base, head }) => (
+
     Q.fcall(() => (
-        Q.all([
-            github.isRepo({ repo: packageName }),
-            gitlab.isRepo({ repo: packageName })
-        ])
-    )).spread((isGithubHosted, isGitlabHosted) => {
+        exec(`npm view ${packageName} repository.url`)
+    )).then(stdout => (
+        url.parse(stdout).hostname
+    )).then(hostname => {
+        const isGithubHosted = hostname === GITHUB_HOSTNAME;
+        const isGitlabHosted = hostname === gitlabHost;
+
         assert(isGithubHosted || isGitlabHosted, 'git repo not found');
         assert(!!isGithubHosted ^ !!isGitlabHosted, 'multiple git repos found');
 
         if (isGithubHosted) {
-            return github.createPackageChangeMarkdown({ repo, base, head });
+            return github.createPackageChangeMarkdown({ repo: packageName, base, head });
         }
         if (isGitlabHosted) {
-            return gitlab.createPackageChangeMarkdown({ repo, base, head });
+            return gitlab.createPackageChangeMarkdown({ repo: packageName, base, head });
         }
 
         // redundant...should be caught above
@@ -77,7 +83,7 @@ Q.fcall(() => Q.all([
                 assert(versions, `invalid npm-check-updates output ${stdout}`);
 
                 return getPackageChangeMarkdown({
-                    repo: packageName,
+                    packageName,
                     base: `v${versions[0]}`,
                     head: `v${versions[1]}`
                 });

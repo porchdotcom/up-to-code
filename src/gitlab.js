@@ -57,12 +57,6 @@ export default class GitLab {
         this.org = org;
     }
 
-    isRepo({ repo }) {
-        log(`isRepo ${repo}`);
-
-        return this.fetchRepo({ repo }).then(r => !!r);
-    }
-
     fetchRepo({ repo }) {
         log(`fetchRepo ${repo}`);
 
@@ -163,18 +157,17 @@ export default class GitLab {
                             description: body
                         }
                     });
-                } else {
-                    return this.api({
-                        method: 'POST',
-                        uri: `/projects/${id}/merge_requests`,
-                        body: {
-                            source_branch: head,
-                            target_branch: 'master',
-                            title,
-                            description: body
-                        }
-                    });
                 }
+                return this.api({
+                    method: 'POST',
+                    uri: `/projects/${id}/merge_requests`,
+                    body: {
+                        source_branch: head,
+                        target_branch: 'master',
+                        title,
+                        description: body
+                    }
+                });
             })
         ));
     }

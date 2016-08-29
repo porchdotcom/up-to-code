@@ -22,17 +22,6 @@ export default class GitHub {
         this.org = org;
     }
 
-    isRepo({ repo }) {
-        log(`isRepo ${repo}`);
-        return Q.fcall(() => (
-            this.fetchRepos()
-        )).then(repos => (
-            repos.filter(({ permissions: { push }}) => !!push)
-        )).then(repos => (
-            repos.find(({ name }) => name === repo)
-        ));
-    }
-
     fetchRepos() {
         log('fetchRepos');
 
@@ -52,7 +41,13 @@ export default class GitHub {
         };
 
         return Q.fcall(() => (
-            getReposPage(0).then(repos => uniqBy(repos, 'id')).tap(repos => log(`${repos.length} repos found`))
+            getReposPage(0)
+        )).then(repos => (
+            uniqBy(repos, 'id')
+        )).then(repos => (
+            repos.filter(({ permissions: { push }}) => !!push)
+        )).tap(repos => (
+            log(`${repos.length} repos found`)
         ));
     }
 
@@ -63,8 +58,6 @@ export default class GitHub {
             this.fetchRepos()
         )).then(repos => (
             repos.filter(({ language }) => /javascript/i.test(language))
-        )).then(repos => (
-            repos.filter(({ permissions: { push }}) => !!push)
         )).then(repos => (
             filter(repos, ({ name: repo }) => (
                 Q.fcall(() => {
