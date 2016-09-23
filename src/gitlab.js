@@ -45,7 +45,7 @@ export default class GitLab {
                     })
                 )).then(res => {
                     if (res.length === PAGE_LENGTH) {
-                        return getPage(page + 1).then(nextPageRepos => [...res, ...nextPageRepos]);
+                        return getPage(page + 1).then(nextPageRes => uniqBy([...res, ...nextPageRes], 'id'));
                     }
                     return res;
                 })
@@ -73,8 +73,6 @@ export default class GitLab {
             this.paginate({ uri: '/projects' })
         )).then(repos => (
             repos.filter(({ namespace: { name }}) => name === this.org)
-        )).then(repos => (
-            uniqBy(repos, 'id')
         )).tap(repos => (
             log(`${repos.length} repos found`)
         ));
