@@ -62,81 +62,80 @@ const getPackageChangeMarkdown = ({ base, head }) => (
 
 const branch = `goldcatcher-${packageName}`;
 
-Q.fcall(() => Q.all([
-    github.fetchDependantRepos({ packageName }),
-    gitlab.fetchDependantRepos({ packageName })
-])).spread((githubRepos, gitlabRepos) => (
-    Q.allSettled([
-        ...githubRepos.map(({ name }) => {
-            log(`time to clone and update github repo ${name}`);
-            const cwd = `repos/github/${name}`;
-            const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
-            return Q.fcall(() => (
-                exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${name}.git ${cwd}`)
-            )).then(() => (
-                exec(`git checkout -B ${branch}`, { cwd })
-            )).then(() => (
-                exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
-            )).then(stdout => {
-                const versions = stdout.match(semverRegex());
-                assert(versions, `invalid npm-check-updates output ${stdout}`);
+Q.all([
+    Q.fcall(() => (
+        github.fetchDependantRepos({ packageName })
+    )).then(githubRepos => Q.allSettled(githubRepos.map(({ name }) => {
+        log(`time to clone and update github repo ${name}`);
+        const cwd = `repos/github/${name}`;
+        const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
+        return Q.fcall(() => (
+            exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${name}.git ${cwd}`)
+        )).then(() => (
+            exec(`git checkout -B ${branch}`, { cwd })
+        )).then(() => (
+            exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
+        )).then(stdout => {
+            const versions = stdout.match(semverRegex());
+            assert(versions, `invalid npm-check-updates output ${stdout}`);
 
-                return getPackageChangeMarkdown({
-                    packageName,
-                    base: `v${versions[0]}`,
-                    head: `v${versions[1]}`
-                });
-            }).then(body => (
-                Q.fcall(() => (
-                    exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
-                )).then(() => (
-                    exec('git push -fu origin HEAD', { cwd })
-                )).then(() => (
-                    github.createPullRequest({
-                        body,
-                        title: `Goldcatcher - ${packageName}`,
-                        head: branch,
-                        repo: name
-                    })
-                ))
-            ));
-        }),
-        ...gitlabRepos.map(({ name }) => {
-            log(`time to clone and update gitlab repo ${name}`);
-            const cwd = `repos/gitlab/${name}`;
-            const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
-            return Q.fcall(() => (
-                exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${name}.git ${cwd}`)
+            return getPackageChangeMarkdown({
+                packageName,
+                base: `v${versions[0]}`,
+                head: `v${versions[1]}`
+            });
+        }).then(body => (
+            Q.fcall(() => (
+                exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
             )).then(() => (
-                exec(`git checkout -B ${branch}`, { cwd })
+                exec('git push -fu origin HEAD', { cwd })
             )).then(() => (
-                exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
-            )).then(stdout => {
-                const versions = stdout.match(semverRegex());
-                assert(versions, `invalid npm-check-updates output ${stdout}`);
+                github.createPullRequest({
+                    body,
+                    title: `Goldcatcher - ${packageName}`,
+                    head: branch,
+                    repo: name
+                })
+            ))
+        ));
+    }))),
+    Q.fcall(() => (
+        gitlab.fetchDependantRepos({ packageName })
+    )).then(gitlabRepos => Q.allSettled(gitlabRepos.map(({ name }) => {
+        log(`time to clone and update gitlab repo ${name}`);
+        const cwd = `repos/gitlab/${name}`;
+        const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
+        return Q.fcall(() => (
+            exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${name}.git ${cwd}`)
+        )).then(() => (
+            exec(`git checkout -B ${branch}`, { cwd })
+        )).then(() => (
+            exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
+        )).then(stdout => {
+            const versions = stdout.match(semverRegex());
+            assert(versions, `invalid npm-check-updates output ${stdout}`);
 
-                return getPackageChangeMarkdown({
-                    repo: packageName,
-                    base: `v${versions[0]}`,
-                    head: `v${versions[1]}`
-                });
-            }).then(body => (
-                Q.fcall(() => (
-                    exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
-                )).then(() => (
-                    exec('git push -fu origin HEAD', { cwd })
-                )).then(() => (
-                    gitlab.createPullRequest({
-                        body,
-                        title: `Goldcatcher - ${packageName}`,
-                        head: branch,
-                        repo: name
-                    })
-                ))
-            ));
-        })
-    ])
-)).then(() => {
+            return getPackageChangeMarkdown({
+                repo: packageName,
+                base: `v${versions[0]}`,
+                head: `v${versions[1]}`
+            });
+        }).then(body => (
+            Q.fcall(() => (
+                exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
+            )).then(() => (
+                exec('git push -fu origin HEAD', { cwd })
+            )).then(() => (
+                gitlab.createPullRequest({
+                    body,
+                    title: `Goldcatcher - ${packageName}`,
+                    head: branch,
+                    repo: name
+                })
+            ))
+        ));
+    })))
+]).then(() => {
     log('success');
     process.exit(0);
 }).catch(err => {
