@@ -126,7 +126,7 @@ Q.all([
             )).then(() => (
                 exec('git push -fu origin HEAD', { cwd })
             )).then(() => (
-                gitlab.createPullRequest({
+                gitlab.createMergeRequest({
                     body,
                     title: `Goldcatcher - ${packageName}`,
                     head: branch,

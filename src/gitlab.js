@@ -121,8 +121,8 @@ export default class GitLab {
         ));
     }
 
-    createPullRequest({ body, title, head, repo }) {
-        log(`createPullRequest ${title}, ${head}, ${repo}`);
+    createMergeRequest({ body, title, head, repo }) {
+        log(`createMergeRequest ${title}, ${head}, ${repo}`);
 
         return Q.fcall(() => (
             this.fetchRepo({ repo })
