@@ -5,7 +5,7 @@
   "scripts": {
     "clean": "rimraf repos",
     "lint": "eslint src",
-    "start": "DEBUG=porch:goldcatcher* babel-node src/index.js",
+    "start": "DEBUG=porch:goldcatcher* babel-node bin/index.js",
     "test": "DEBUG=porch:goldcatcher* mocha --require babel-core/register --require dotenv/config --timeout 30000"
   },
   "bin": {

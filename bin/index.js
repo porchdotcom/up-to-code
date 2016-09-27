@@ -2,4 +2,4 @@
 
 require('babel-polyfill');
 require('babel-register');
-require('../src');
+require('./goldcatcher');
