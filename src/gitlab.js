@@ -25,13 +25,16 @@ export default class GitLab {
         });
 
         this.api = memoize(options => {
+            log('api %o', options);
             const defer = Q.defer();
             api(options, defer.makeNodeResolver());
             return defer.promise.spread((res, body) => {
                 assert(res.statusCode < 400, body);
                 return body;
+            }).finally(() => {
+                log('api complete %o', options);
             });
-        });
+        }, JSON.stringify);
 
         this.paginate = memoize(options => {
             const getPage = page => (
@@ -52,7 +55,7 @@ export default class GitLab {
             );
 
             return getPage(0);
-        });
+        }, JSON.stringify);
         this.host = host;
         this.org = org;
     }
@@ -64,7 +67,9 @@ export default class GitLab {
             this.fetchRepos()
         )).then(repos => (
             repos.find(({ name }) => name === repo)
-        ));
+        )).finally(() => {
+            log(`fetchRepo ${repo} complete`);
+        });
     }
 
     fetchRepos() {
