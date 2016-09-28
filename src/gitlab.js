@@ -126,25 +126,23 @@ export default class GitLab {
         ));
     }
 
-    createMergeRequest({ body, title, head, repo }) {
-        log(`createMergeRequest ${title}, ${head}, ${repo}`);
+    createMergeRequest({ body, title, head, repo, accept }) {
+        log(`createMergeRequest ${title}, ${head}, ${repo}, ${accept}`);
 
         return Q.fcall(() => (
             this.fetchRepo({ repo })
         )).then(({ id }) => (
             Q.fcall(() => (
                 this.paginate({
-                    uri: `/projects/${id}/merge_requests`
+                    uri: `/projects/${id}/merge_requests?state=opened`
                 })
             )).then(mergeRequests => (
                 mergeRequests.filter(({
                     target_branch: targetBranch,
-                    source_branch: sourceBranch,
-                    state
+                    source_branch: sourceBranch
                 }) => (
                     targetBranch === 'master' &&
-                    sourceBranch === head &&
-                    state === 'opened'
+                    sourceBranch === head
                 ))
             )).then(mrs => {
                 if (!!mrs.length) {
@@ -170,6 +168,19 @@ export default class GitLab {
                         description: body
                     }
                 });
+            }).then(mr => {
+                if (accept) {
+                    log('accepting merge request');
+                    return this.api({
+                        method: 'PUT',
+                        uri: `/projects/${id}/merge_requests/${mr.id}/merge`,
+                        body: {
+                            should_remove_source_branch: true,
+                            merge_when_build_succeeds: true
+                        }
+                    });
+                }
+                return Q.resolve();
             })
         ));
     }

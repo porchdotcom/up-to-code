@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "clean": "rimraf repos",
-    "lint": "eslint src",
+    "lint": "eslint .",
     "start": "DEBUG=porch:goldcatcher* babel-node bin/index.js",
-    "test": "DEBUG=porch:goldcatcher* mocha --require babel-core/register --require dotenv/config --timeout 30000"
+    "test": "DEBUG=porch:goldcatcher* mocha --require babel-core/register --require dotenv/config --timeout 60000"
   },
   "bin": {
     "goldcatcher": "bin/index.js"

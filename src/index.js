@@ -12,6 +12,8 @@ const log = debug('porch:goldcatcher');
 
 const GITHUB_HOSTNAME = 'github.com';
 
+const getPackageBranchName = packageName => `goldcatcher-${packageName}`;
+
 const getPackageChangeMarkdown = ({ base, head, packageName, gitlabHost, githubOrg, githubToken, gitlabOrg, gitlabToken }) => (
     Q.fcall(() => (
         exec(`npm view ${packageName} repository.url`)
@@ -41,7 +43,6 @@ const getPackageChangeMarkdown = ({ base, head, packageName, gitlabHost, githubO
 const updateGithubRepoDependency = ({
     name,
     packageName,
-    branch,
     githubToken,
     githubOrg,
     gitlabHost,
@@ -54,7 +55,7 @@ const updateGithubRepoDependency = ({
     return Q.fcall(() => (
         exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${name}.git ${cwd}`)
     )).then(() => (
-        exec(`git checkout -B ${branch}`, { cwd })
+        exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
     )).then(() => (
         exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
     )).then(stdout => {
@@ -81,17 +82,16 @@ const updateGithubRepoDependency = ({
             return github.createPullRequest({
                 body,
                 title: `Goldcatcher - ${packageName}`,
-                head: branch,
+                head: getPackageBranchName(packageName),
                 repo: name
             });
         })
     ));
 };
 
-const updateGitlabRepoDependency = ({
+export const updateGitlabRepoDependency = ({
     name,
     packageName,
-    branch,
     githubToken,
     githubOrg,
     gitlabHost,
@@ -105,37 +105,47 @@ const updateGitlabRepoDependency = ({
     return Q.fcall(() => (
         exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${name}.git ${cwd}`)
     )).then(() => (
-        exec(`git checkout -B ${branch}`, { cwd })
+        exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
     )).then(() => (
-        exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
-    )).then(stdout => {
-        const versions = stdout.match(semverRegex());
-        assert(versions, `invalid npm-check-updates output ${stdout}`);
-
-        return getPackageChangeMarkdown({
-            packageName,
-            base: `v${versions[0]}`,
-            head: `v${versions[1]}`,
-            gitlabHost,
-            githubOrg,
-            githubToken,
-            gitlabOrg,
-            gitlabToken
-        });
-    }).then(body => (
+        // determine if this is an update within the existing semver, auto accept the merge request if it is
+        exec(`${ncu} -e 2 --packageFile package.json ${packageName}`, { cwd }).then(() => true, () => false)
+    )).then(accept => (
         Q.fcall(() => (
-            exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
-        )).then(() => (
-            exec('git push -fu origin HEAD', { cwd })
-        )).then(() => {
-            const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
-            return gitlab.createMergeRequest({
-                body,
-                title: `Goldcatcher - ${packageName}`,
-                head: branch,
-                repo: name
-            });
-        })
+            // upgrade and grab versions
+            exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd }).then(stdout => {
+                const versions = stdout.match(semverRegex());
+                assert(versions, `invalid npm-check-updates output ${stdout}`);
+                return versions;
+            })
+        )).then(versions => (
+            getPackageChangeMarkdown({
+                packageName,
+                base: `v${versions[0]}`,
+                head: `v${versions[1]}`,
+                gitlabHost,
+                githubOrg,
+                githubToken,
+                gitlabOrg,
+                gitlabToken
+            })
+        )).then(body => (
+            Q.fcall(() => (
+                exec('git diff', { cwd })
+            )).then(() => (
+                exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
+            )).then(() => (
+                exec('git push -fu origin HEAD', { cwd })
+            )).then(() => {
+                const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
+                return gitlab.createMergeRequest({
+                    body,
+                    title: `Goldcatcher - ${packageName}`,
+                    head: getPackageBranchName(packageName),
+                    repo: name,
+                    accept
+                });
+            })
+        ))
     ));
 };
 
@@ -153,7 +163,6 @@ export default ({
     const github = new GitHub({ org: githubOrg, token: githubToken });
     const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
 
-    const branch = `goldcatcher-${packageName}`;
 
     return Q.all([
         Q.fcall(() => (
@@ -162,7 +171,6 @@ export default ({
             updateGithubRepoDependency({
                 name,
                 packageName,
-                branch,
                 githubToken,
                 githubOrg,
                 gitlabHost,
@@ -176,7 +184,6 @@ export default ({
             updateGitlabRepoDependency({
                 name,
                 packageName,
-                branch,
                 githubToken,
                 githubOrg,
                 gitlabHost,
