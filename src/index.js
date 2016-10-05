@@ -6,7 +6,8 @@ import debug from 'debug';
 import assert from 'assert';
 import exec from './exec';
 import url from 'url';
-import pkg from './pkg';
+import updateDependency from './pkg';
+import { major } from 'semver';
 
 const log = debug('porch:goldcatcher');
 
@@ -51,36 +52,23 @@ const updateGithubRepoDependency = ({
 }) => {
     log(`time to clone and update github repo ${name}`);
     const cwd = `repos/github/${name}`;
-    const pkgEditor = pkg(path.resolve(cwd, 'package.json'));
     return Q.fcall(() => (
         exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${name}.git ${cwd}`)
     )).then(() => (
         exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
     )).then(() => (
-        Q.fcall(() => (
-            pkgEditor.version(packageName)
-        )).tap(before => (
-            log(`before ${before}`)
-        )).then(before => (
-            Q.fcall(() => (
-                pkgEditor.update(packageName)
-            )).then(() => (
-                pkgEditor.version(packageName)
-            )).tap(after => (
-                log(`after ${after}`)
-            )).then(after => (
-                getPackageChangeMarkdown({
-                    packageName,
-                    base: `v${before}`,
-                    head: `v${after}`,
-                    gitlabHost,
-                    githubOrg,
-                    githubToken,
-                    gitlabOrg,
-                    gitlabToken
-                })
-            ))
-        ))
+        updateDependency(path.resolve(cwd, 'package.json'), packageName)
+    )).then(([before, after]) => (
+        getPackageChangeMarkdown({
+            packageName,
+            base: `v${before}`,
+            head: `v${after}`,
+            gitlabHost,
+            githubOrg,
+            githubToken,
+            gitlabOrg,
+            gitlabToken
+        })
     )).then(body => (
         Q.fcall(() => (
             exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
@@ -110,35 +98,24 @@ export const updateGitlabRepoDependency = ({
 }) => {
     log(`time to clone and update gitlab repo ${name}`);
     const cwd = `repos/gitlab/${name}`;
-    const pkgEditor = pkg(path.resolve(cwd, 'package.json'));
     return Q.fcall(() => (
         exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${name}.git ${cwd}`)
     )).then(() => (
         exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
     )).then(() => (
+        updateDependency(path.resolve(cwd, 'package.json'), packageName)
+    )).then(([before, after]) => (
         Q.fcall(() => (
-            pkgEditor.version(packageName)
-        )).tap(before => (
-            log(`before ${before}`)
-        )).then(before => (
-            Q.fcall(() => (
-                pkgEditor.update(packageName)
-            )).then(() => (
-                pkgEditor.version(packageName)
-            )).tap(after => (
-                log(`after ${after}`)
-            )).then(after => (
-                getPackageChangeMarkdown({
-                    packageName,
-                    base: `v${before}`,
-                    head: `v${after}`,
-                    gitlabHost,
-                    githubOrg,
-                    githubToken,
-                    gitlabOrg,
-                    gitlabToken
-                })
-            ))
+            getPackageChangeMarkdown({
+                packageName,
+                base: `v${before}`,
+                head: `v${after}`,
+                gitlabHost,
+                githubOrg,
+                githubToken,
+                gitlabOrg,
+                gitlabToken
+            })
         )).then(body => (
             Q.fcall(() => (
                 exec('git diff', { cwd })
@@ -153,7 +130,7 @@ export const updateGitlabRepoDependency = ({
                     title: `Goldcatcher - ${packageName}`,
                     head: getPackageBranchName(packageName),
                     repo: name,
-                    accept: false
+                    accept: major(before) === major(after)
                 });
             })
         ))
