@@ -169,7 +169,8 @@ export default class GitLab {
                     }
                 });
             }).then(mr => {
-                if (accept) {
+                const isIssueOpen = true; // https://gitlab.com/gitlab-org/gitlab-ce/issues/22740
+                if (!isIssueOpen && accept) {
                     log('accepting merge request');
                     return this.api({
                         method: 'PUT',
