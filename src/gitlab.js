@@ -36,12 +36,13 @@ export default class GitLab {
             });
         }, JSON.stringify);
 
-        this.paginate = memoize(options => {
+        this.paginate = memoize(({ qs, ...options }) => {
             const getPage = page => (
                 Q.fcall(() => (
                     this.api({
                         ...options,
                         qs: {
+                            ...qs,
                             page,
                             per_page: PAGE_LENGTH
                         }
@@ -90,7 +91,11 @@ export default class GitLab {
             this.fetchRepo({ repo })
         )).then(({ id }) => (
             this.api({
-                uri: `/projects/${id}/repository/compare?from=${base}&to=${head}`
+                uri: `/projects/${id}/repository/compare`,
+                qs: {
+                    from: base,
+                    to: head
+                }
             })
         )).then(({ commits }) => ([
             '### Diff',
@@ -115,7 +120,10 @@ export default class GitLab {
             filter(repos, ({ id }) => (
                 Q.fcall(() => (
                     this.api({
-                        uri: `/projects/${id}/repository/blobs/master?filepath=package.json`
+                        uri: `/projects/${id}/repository/blobs/master`,
+                        qs: {
+                            filepath: 'package.json'
+                        }
                     })
                 )).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
                     dependencies.hasOwnProperty(packageName) ||
@@ -134,7 +142,10 @@ export default class GitLab {
         )).then(({ id }) => (
             Q.fcall(() => (
                 this.paginate({
-                    uri: `/projects/${id}/merge_requests?state=opened`
+                    uri: `/projects/${id}/merge_requests`,
+                    qs: {
+                        state: 'opened'
+                    }
                 })
             )).then(mergeRequests => (
                 mergeRequests.filter(({

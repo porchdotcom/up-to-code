@@ -4,9 +4,9 @@ import GitHub from './github';
 import GitLab from './gitlab';
 import debug from 'debug';
 import assert from 'assert';
-import semverRegex from 'semver-regex';
 import exec from './exec';
 import url from 'url';
+import pkg from './pkg';
 
 const log = debug('porch:goldcatcher');
 
@@ -51,28 +51,37 @@ const updateGithubRepoDependency = ({
 }) => {
     log(`time to clone and update github repo ${name}`);
     const cwd = `repos/github/${name}`;
-    const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
+    const pkgEditor = pkg(path.resolve(cwd, 'package.json'));
     return Q.fcall(() => (
         exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${name}.git ${cwd}`)
     )).then(() => (
         exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
     )).then(() => (
-        exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd })
-    )).then(stdout => {
-        const versions = stdout.match(semverRegex());
-        assert(versions, `invalid npm-check-updates output ${stdout}`);
-
-        return getPackageChangeMarkdown({
-            packageName,
-            base: `v${versions[0]}`,
-            head: `v${versions[1]}`,
-            gitlabHost,
-            githubOrg,
-            githubToken,
-            gitlabOrg,
-            gitlabToken
-        });
-    }).then(body => (
+        Q.fcall(() => (
+            pkgEditor.version(packageName)
+        )).tap(before => (
+            log(`before ${before}`)
+        )).then(before => (
+            Q.fcall(() => (
+                pkgEditor.update(packageName)
+            )).then(() => (
+                pkgEditor.version(packageName)
+            )).tap(after => (
+                log(`after ${after}`)
+            )).then(after => (
+                getPackageChangeMarkdown({
+                    packageName,
+                    base: `v${before}`,
+                    head: `v${after}`,
+                    gitlabHost,
+                    githubOrg,
+                    githubToken,
+                    gitlabOrg,
+                    gitlabToken
+                })
+            ))
+        ))
+    )).then(body => (
         Q.fcall(() => (
             exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
         )).then(() => (
@@ -101,33 +110,35 @@ export const updateGitlabRepoDependency = ({
 }) => {
     log(`time to clone and update gitlab repo ${name}`);
     const cwd = `repos/gitlab/${name}`;
-    const ncu = path.resolve(__dirname, '../node_modules/.bin/ncu');
+    const pkgEditor = pkg(path.resolve(cwd, 'package.json'));
     return Q.fcall(() => (
         exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${name}.git ${cwd}`)
     )).then(() => (
         exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
     )).then(() => (
-        // determine if this is an update within the existing semver, auto accept the merge request if it is
-        exec(`${ncu} -e 2 --packageFile package.json ${packageName}`, { cwd }).then(() => true, () => false)
-    )).then(accept => (
         Q.fcall(() => (
-            // upgrade and grab versions
-            exec(`${ncu} -a --packageFile package.json ${packageName}`, { cwd }).then(stdout => {
-                const versions = stdout.match(semverRegex());
-                assert(versions, `invalid npm-check-updates output ${stdout}`);
-                return versions;
-            })
-        )).then(versions => (
-            getPackageChangeMarkdown({
-                packageName,
-                base: `v${versions[0]}`,
-                head: `v${versions[1]}`,
-                gitlabHost,
-                githubOrg,
-                githubToken,
-                gitlabOrg,
-                gitlabToken
-            })
+            pkgEditor.version(packageName)
+        )).tap(before => (
+            log(`before ${before}`)
+        )).then(before => (
+            Q.fcall(() => (
+                pkgEditor.update(packageName)
+            )).then(() => (
+                pkgEditor.version(packageName)
+            )).tap(after => (
+                log(`after ${after}`)
+            )).then(after => (
+                getPackageChangeMarkdown({
+                    packageName,
+                    base: `v${before}`,
+                    head: `v${after}`,
+                    gitlabHost,
+                    githubOrg,
+                    githubToken,
+                    gitlabOrg,
+                    gitlabToken
+                })
+            ))
         )).then(body => (
             Q.fcall(() => (
                 exec('git diff', { cwd })
@@ -142,7 +153,7 @@ export const updateGitlabRepoDependency = ({
                     title: `Goldcatcher - ${packageName}`,
                     head: getPackageBranchName(packageName),
                     repo: name,
-                    accept
+                    accept: false
                 });
             })
         ))
@@ -162,7 +173,6 @@ export default ({
 
     const github = new GitHub({ org: githubOrg, token: githubToken });
     const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
-
 
     return Q.all([
         Q.fcall(() => (
