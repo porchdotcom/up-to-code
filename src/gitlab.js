@@ -4,15 +4,31 @@ import debug from 'debug';
 import request from 'request';
 import url from 'url';
 import { memoize, uniqBy } from 'lodash';
-import { filter } from './promises';
+import { filter, until } from './promises';
 
 const PAGE_LENGTH = 100;
 
 const log = debug('porch:goldcatcher:gitlab');
 
+const apiRaw = options => {
+    log('request %o', options);
+    const defer = Q.defer();
+    request(options, defer.makeNodeResolver());
+    return defer.promise.spread((res, body) => {
+        assert(res.statusCode < 400, body);
+        return body;
+    }).finally(() => {
+        log('request complete %o', options);
+    });
+};
+
+const apiCached = memoize(apiRaw, JSON.stringify);
+
+const api = ({ cached = false, ...options }) => cached ? apiCached(options) : apiRaw(options);
+
 export default class GitLab {
     constructor({ token, org, host }) {
-        const api = request.defaults({
+        this.api = options => api({
             json: true,
             baseUrl: url.format({
                 protocol: 'https:',
@@ -21,22 +37,11 @@ export default class GitLab {
             }),
             headers: {
                 'PRIVATE-TOKEN': token
-            }
+            },
+            ...options
         });
 
-        this.api = memoize(options => {
-            log('api %o', options);
-            const defer = Q.defer();
-            api(options, defer.makeNodeResolver());
-            return defer.promise.spread((res, body) => {
-                assert(res.statusCode < 400, body);
-                return body;
-            }).finally(() => {
-                log('api complete %o', options);
-            });
-        }, JSON.stringify);
-
-        this.paginate = memoize(({ qs, ...options }) => {
+        this.paginate = ({ qs, ...options }) => {
             const getPage = page => (
                 Q.fcall(() => (
                     this.api({
@@ -56,7 +61,7 @@ export default class GitLab {
             );
 
             return getPage(0);
-        }, JSON.stringify);
+        };
         this.host = host;
         this.org = org;
     }
@@ -76,7 +81,10 @@ export default class GitLab {
     fetchRepos() {
         log('fetchRepos');
         return Q.fcall(() => (
-            this.paginate({ uri: '/projects' })
+            this.paginate({
+                cached: true,
+                uri: '/projects'
+            })
         )).then(repos => (
             repos.filter(({ namespace: { name }}) => name === this.org)
         )).tap(repos => (
@@ -91,6 +99,7 @@ export default class GitLab {
             this.fetchRepo({ repo })
         )).then(({ id }) => (
             this.api({
+                cached: true,
                 uri: `/projects/${id}/repository/compare`,
                 qs: {
                     from: base,
@@ -120,6 +129,7 @@ export default class GitLab {
             filter(repos, ({ id }) => (
                 Q.fcall(() => (
                     this.api({
+                        cached: true,
                         uri: `/projects/${id}/repository/blobs/master`,
                         qs: {
                             filepath: 'package.json'
@@ -180,17 +190,61 @@ export default class GitLab {
                     }
                 });
             }).then(mr => {
-                const isIssueOpen = true; // https://gitlab.com/gitlab-org/gitlab-ce/issues/22740
-                if (!isIssueOpen && accept) {
+                if (accept) {
                     log('accepting merge request');
-                    return this.api({
-                        method: 'PUT',
-                        uri: `/projects/${id}/merge_requests/${mr.id}/merge`,
-                        body: {
-                            should_remove_source_branch: true,
-                            merge_when_build_succeeds: true
-                        }
-                    });
+
+                    const isIssueOpen = true; // https://gitlab.com/gitlab-org/gitlab-ce/issues/22740
+
+                    return Q.fcall(() => {
+                        return isIssueOpen && Q.fcall(() => (
+                            this.paginate({
+                                uri: `/projects/${id}/pipelines`
+                            })
+                        )).then(pipelines => (
+                            pipelines.find(({ sha }) => sha === mr.sha)
+                        )).tap(pipeline => {
+                            assert(pipeline, `pipeline for ${mr.sha} required`);
+                        }).tap(() => (
+                            log('waiting for pipeline')
+                        )).then(pipeline => (
+                            Q.fcall(() => (
+                                // wait for the pipeline to complete
+                                until(() => (
+                                    this.api({
+                                        uri: `/projects/${id}/pipelines/${pipeline.id}`
+                                    }).then(({ status }) => {
+                                        log(`status ${status}`);
+                                        return status !== 'running';
+                                    })
+                                ), 60000)
+                            )).then(() => (
+                                // ensure the pipeline was successful
+                                this.api({
+                                    uri: `/projects/${id}/pipelines/${pipeline.id}`
+                                }).then(({ status }) => {
+                                    log(`pipeline status ${status}`);
+                                    assert.equal(status, 'success');
+                                })
+                            )).then(() => (
+                                // ensure that the mr hasn't been updated
+                                this.api({
+                                    uri: `/projects/${id}/merge_request/${mr.id}`
+                                }).then(({ sha }) => {
+                                    log(`merge request update check ${mr.sha} ${sha}`);
+                                    assert.equal(sha, mr.sha);
+                                })
+                            ))
+                        ));
+                    }).then(() => (
+                        this.api({
+                            method: 'PUT',
+                            uri: `/projects/${id}/merge_requests/${mr.id}/merge`,
+                            body: {
+                                should_remove_source_branch: true,
+                                merge_when_build_succeeds: true
+                            }
+                        })
+                    ));
                 }
                 return Q.resolve();
             })

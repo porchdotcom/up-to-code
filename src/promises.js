@@ -13,3 +13,11 @@ export const filter = (arr, fn) => {
         });
     })).thenResolve(ret);
 };
+
+export const until = (fn, delay) => (
+    Q.fcall(() => (
+        fn()
+    )).then(condition => (
+        condition || Q.delay(delay).then(() => until(fn, delay))
+    ))
+);

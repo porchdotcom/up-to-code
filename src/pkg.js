@@ -2,10 +2,14 @@ import jsonFile from 'json-file-plus';
 import Q from 'q';
 import exec from './exec';
 import semverRegex from 'semver-regex';
+import { memoize } from 'lodash';
 
 // update to exact versions
 // return whether the new version is not a major bump (ie, safe to merge without review)
 const exactVersion = version => version.match(semverRegex())[0];
+const getPublishedVersion = memoize(packageName => (
+    exec(`npm view ${packageName} version`).then(version => version.trim())
+));
 
 const getVersion = (path, packageName) => (
     Q.fcall(() => (
@@ -13,7 +17,7 @@ const getVersion = (path, packageName) => (
     )).then(file => (
         Q.all([
             file.get(),
-            exec(`npm view ${packageName} version`).then(version => version.trim())
+            getPublishedVersion(packageName)
         ]).spread(({
             dependencies = {},
             devDependencies = {},
@@ -39,7 +43,7 @@ const updateVersion = (path, packageName) => (
     )).then(file => (
         Q.all([
             file.get(),
-            exec(`npm view ${packageName} version`).then(version => version.trim())
+            getPublishedVersion(packageName)
         ]).spread(({
             dependencies = {},
             devDependencies = {},
