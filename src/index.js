@@ -9,11 +9,11 @@ import url from 'url';
 import updateDependency from './pkg';
 import { major } from 'semver';
 
-const log = debug('porch:goldcatcher');
+const log = debug('porch:uptocode');
 
 const GITHUB_HOSTNAME = 'github.com';
 
-const getPackageBranchName = packageName => `goldcatcher-${packageName}`;
+const getPackageBranchName = packageName => `up-to-code-${packageName}`;
 
 const getPackageChangeMarkdown = ({ base, head, packageName, gitlabHost, githubOrg, githubToken, gitlabOrg, gitlabToken }) => (
     Q.fcall(() => (
@@ -71,14 +71,14 @@ const updateGithubRepoDependency = ({
         })
     )).then(body => (
         Q.fcall(() => (
-            exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
+            exec(`git commit -a -m "Up-to-code bump of ${packageName}"`, { cwd })
         )).then(() => (
             exec('git push -fu origin HEAD', { cwd })
         )).then(() => {
             const github = new GitHub({ org: githubOrg, token: githubToken });
             return github.createPullRequest({
                 body,
-                title: `Goldcatcher - ${packageName}`,
+                title: `Up to code - ${packageName}`,
                 head: getPackageBranchName(packageName),
                 repo: name
             });
@@ -120,14 +120,14 @@ export const updateGitlabRepoDependency = ({
             Q.fcall(() => (
                 exec('git diff', { cwd })
             )).then(() => (
-                exec(`git commit -a -m "Goldcatcher bump of ${packageName}"`, { cwd })
+                exec(`git commit -a -m "Up to code bump of ${packageName}"`, { cwd })
             )).then(() => (
                 exec('git push -fu origin HEAD', { cwd })
             )).then(() => {
                 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
                 return gitlab.createMergeRequest({
                     body,
-                    title: `Goldcatcher - ${packageName}`,
+                    title: `Up to code - ${packageName}`,
                     head: getPackageBranchName(packageName),
                     repo: name,
                     accept: major(before) === major(after)
@@ -146,7 +146,7 @@ export default ({
     gitlabHost,
     gitlabUser
 }) => {
-    log(`goldcatcher ${packageName}`);
+    log(`uptocode ${packageName}`);
 
     const github = new GitHub({ org: githubOrg, token: githubToken });
     const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });

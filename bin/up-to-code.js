@@ -1,9 +1,9 @@
 import assert from 'assert';
 import parseArgs from 'minimist';
-import goldcatcher from '../src';
+import uptocode from '../src';
 import debug from 'debug';
 
-const log = debug('porch:goldcatcher');
+const log = debug('porch:uptocode');
 
 const {
     'package-name': packageName,
@@ -23,7 +23,7 @@ assert(gitlabToken, 'gitlab authentication token required');
 assert(gitlabHost, 'gitlab host required');
 assert(gitlabUser, 'gitlab user required');
 
-goldcatcher({
+uptocode({
     packageName,
     githubOrg,
     githubToken,

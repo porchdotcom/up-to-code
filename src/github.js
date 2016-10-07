@@ -5,7 +5,7 @@ import { uniqBy } from 'lodash';
 import assert from 'assert';
 import { filter } from './promises';
 
-const log = debug('porch:goldcatcher:github');
+const log = debug('porch:uptocode:github');
 
 const PAGE_LENGTH = 100;
 const HELPSCORE_SCM = 'helpscore-scm';

@@ -1,7 +1,7 @@
 import Q from 'q';
 import childProcess from 'child_process';
 import debug from 'debug';
-const log = debug('porch:goldcatcher:exec');
+const log = debug('porch:uptocode:exec');
 
 export default (cmd, options = {}) => {
     log(`EXEC: ${cmd}`);

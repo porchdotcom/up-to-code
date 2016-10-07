@@ -1,7 +1,7 @@
 FROM node:4
 
-RUN git config --global user.name goldcatcher \
-    && git config --global user.email goldcatcher@porch.com \
+RUN git config --global user.name uptocode \
+    && git config --global user.email uptocode@porch.com \
     && git config --global push.default simple
 
 RUN npm install -g npm@3.10.5

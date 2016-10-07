@@ -8,7 +8,7 @@ import { filter, until } from './promises';
 
 const PAGE_LENGTH = 100;
 
-const log = debug('porch:goldcatcher:gitlab');
+const log = debug('porch:uptocode:gitlab');
 
 const apiRaw = options => {
     log('request %o', options);
