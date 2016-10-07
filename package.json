@@ -1,15 +1,15 @@
 {
-  "name": "goldcatcher",
+  "name": "up-to-code",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "clean": "rimraf repos",
     "lint": "eslint .",
-    "start": "DEBUG=porch:goldcatcher* babel-node bin/index.js",
-    "test": "DEBUG=porch:goldcatcher* mocha --require babel-core/register --require dotenv/config --timeout 60000"
+    "start": "DEBUG=porch:uptocode* babel-node bin/index.js",
+    "test": "DEBUG=porch:uptocode* mocha --require babel-core/register --require dotenv/config --timeout 60000"
   },
   "bin": {
-    "goldcatcher": "bin/index.js"
+    "uptocode": "bin/index.js"
   },
   "dependencies": {
     "babel-cli": "^6.6.5",
