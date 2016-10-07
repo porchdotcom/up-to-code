@@ -1,21 +1,24 @@
 Goldcatcher
 ===========
 
-# About
+Goldcatcher keeps your node apps up to date.  Every time you publish a new
+library, Goldcatcher will create a beautiful pull request for every node app in
+your organization that needs a version bump.
 
-Goldcatcher creates beautiful pull requests to update libraries for every repo
-in your organization that is out of date.
+# About
 
 Let's say you work at a company that has lots of node apps and lots of
 javascript libraries.  When you make a change to one of those libraries, you
 would like your node apps to update to the latest version.  Goldcatcher
 automates this process by creating a pull request to update the version in
-package.json.  The goldcatcher pull request will include links to easily see a
+package.json.  The Goldcatcher pull request will include links to easily see a
 diff of the updates, new version, and link to other similar pull requests.
 This gives the app owner a chance to review the updates and keep their project
 update to code.
 
-A goldcatcher pull request contains lots of useful info:
+## Example
+A Goldcatcher pull request contains lots of useful info:
+
 ![pull request example](example.png)
 
 
@@ -23,7 +26,9 @@ A goldcatcher pull request contains lots of useful info:
 
 ## Running with docker
 
-The easiest way to use goldcatcher is docker.  
+The easiest way to use Goldcatcher is docker.  After publishing a new version
+of awesome-js-library, you can make sure all apps are up to date by running a
+docker command like this:
 
     docker run \
         -e npm_config_registry=http://npm.example.com/nexus/content/groups/npmall/ \
@@ -39,9 +44,6 @@ The easiest way to use goldcatcher is docker.
         --gitlab-org=myorg \
         --gitlab-token=abcd123 \
         --gitlab-host=gitlab.example.com
-
-docker run -e npm_config_registry=http://yourprivatenpm.example.com porchdotcom/goldcatcher \
-    --package-name=
 
 ## Options
 
@@ -75,9 +77,9 @@ Domain name of self hosted gitlab instance.  For example `gitlab.porch.com`
 
 ## Environment Variables
 
-[NPM configuration](https://docs.npmjs.com/misc/config) is passed to goldcatcher through environment variables. For
+[NPM configuration](https://docs.npmjs.com/misc/config) is passed to Goldcatcher through environment variables. For
 example, if you have a private npm registry, you should configure it using `npm_config_registry=http://mynpm.example.com`.
-Anything required to access your npm host in your .npmrc file should be passed to goldcatcher through and environment variable.
+Anything required to access your npm host in your .npmrc file should be passed to Goldcatcher through and environment variable.
 
 ### Commonly used npm config
 
@@ -88,13 +90,12 @@ a private npm registry:
     npm_config__auth
 
 
-
 ### DEBUG="porch:goldcatcher*"
-Enable verbose logging for goldcatcher
+
+Enable verbose logging for Goldcatcher
 
 # Supported platforms
 
-Gold catcher can create pull requests on github and gitlab.  It has been tested
+Goldcatcher can create pull requests on github and gitlab.  It has been tested
 with sinopia and nexus npm registries.
-
 
