@@ -36,7 +36,7 @@ docker command like this:
         -e npm_config_always_auth=true \
         -e npm_config__auth=npmpassword \
         -e DEBUG="porch:uptocode*" \
-        porchdotcom/uptocode:latest \
+        porchdotcom/up-to-code:latest \
         --package-name=awesome-js-library \
         --github-org=myorg \
         --github-token=abcdef12abcdef12abcdef12abcdef12abcdef12 \
