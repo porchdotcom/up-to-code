@@ -14,7 +14,7 @@ automates this process by creating a pull request to update the version in
 package.json.  The Goldcatcher pull request will include links to easily see a
 diff of the updates, new version, and link to other similar pull requests.
 This gives the app owner a chance to review the updates and keep their project
-update to code.
+up to code.
 
 ## Example
 A Goldcatcher pull request contains lots of useful info:
