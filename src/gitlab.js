@@ -115,7 +115,7 @@ export default class GitLab {
                 author_name: authorName,
                 title
             }) => (
-                `- ${authorName}- [${title}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
+                `- ${authorName} - [${title.replace(' [ci skip]', '')}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
             )).reverse().join('\n')
         ].join('\n\n')));
     }
