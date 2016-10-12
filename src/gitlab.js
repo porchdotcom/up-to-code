@@ -114,9 +114,10 @@ export default class GitLab {
                 id,
                 author_name: authorName,
                 title
-            }) => (
-                `- ${authorName} - [${title.replace(' [ci skip]', '')}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
-            )).reverse().join('\n')
+            }) => {
+                const strippedTitle = title.replace(' [ci skip]', '').replace(' [skip ci]', '');
+                return `- ${authorName} - [${strippedTitle}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
+            }).reverse().join('\n')
         ].join('\n\n')));
     }
 
