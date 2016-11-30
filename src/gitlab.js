@@ -244,6 +244,8 @@ export default class GitLab {
                                 should_remove_source_branch: true,
                                 merge_when_build_succeeds: true
                             }
+                        }).then(() => {
+                            log(`merge request ${title} ${head} ${repo} merged`);
                         })
                     ));
                 }

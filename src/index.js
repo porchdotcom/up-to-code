@@ -9,6 +9,8 @@ import url from 'url';
 import updateDependency from './pkg';
 import { major } from 'semver';
 
+import './debug-truncated-objects-plugin';
+
 const log = debug('porch:uptocode');
 
 const GITHUB_HOSTNAME = 'github.com';
