@@ -1,24 +1,19 @@
 import assert from 'assert';
 import Q from 'q';
-import debug from 'debug';
 import request from 'request';
 import url from 'url';
 import { memoize, uniqBy } from 'lodash';
 import { filter, until } from './promises';
+import log from './log';
 
 const PAGE_LENGTH = 100;
 
-const log = debug('porch:uptocode:gitlab');
-
 const apiRaw = options => {
-    log('request %o', options);
     const defer = Q.defer();
     request(options, defer.makeNodeResolver());
     return defer.promise.spread((res, body) => {
         assert(res.statusCode < 400, body);
         return body;
-    }).finally(() => {
-        log('request complete %o', options);
     });
 };
 
@@ -66,20 +61,20 @@ export default class GitLab {
         this.org = org;
     }
 
-    fetchRepo({ repo }) {
-        log(`fetchRepo ${repo}`);
+    fetchRepo = log(({ repo, logger }) => {
+        logger.trace(`fetchRepo ${repo}`);
 
         return Q.fcall(() => (
-            this.fetchRepos()
+            this.fetchRepos({ logger })
         )).then(repos => (
             repos.find(({ name }) => name === repo)
         )).finally(() => {
-            log(`fetchRepo ${repo} complete`);
+            logger.trace(`fetchRepo ${repo} complete`);
         });
-    }
+    });
 
-    fetchRepos() {
-        log('fetchRepos');
+    fetchRepos = log(({ logger }) => {
+        logger.trace('fetchRepos');
         return Q.fcall(() => (
             this.paginate({
                 cached: true,
@@ -88,15 +83,15 @@ export default class GitLab {
         )).then(repos => (
             repos.filter(({ namespace: { name }}) => name === this.org)
         )).tap(repos => (
-            log(`${repos.length} repos found`)
+            logger.trace(`${repos.length} repos found`)
         ));
-    }
+    });
 
-    createPackageChangeMarkdown({ base, head, repo }) {
-        log(`createPackageChangeMarkdown ${base} ${head} ${repo}`);
+    createPackageChangeMarkdown = log(({ base, head, repo, logger }) => {
+        logger.trace(`createPackageChangeMarkdown ${base} ${head} ${repo}`);
 
         return Q.fcall(() => (
-            this.fetchRepo({ repo })
+            this.fetchRepo({ repo, logger })
         )).then(({ id }) => (
             this.api({
                 cached: true,
@@ -116,16 +111,16 @@ export default class GitLab {
                 title
             }) => {
                 const strippedTitle = title.replace(' [ci skip]', '').replace(' [skip ci]', '');
-                return `- ${authorName} - [${strippedTitle}](https://${this.host}/${this.org}/${repo}/commit/${id})` // eslint-disable-line camelcase
+                return `- ${authorName} - [${strippedTitle}](https://${this.host}/${this.org}/${repo}/commit/${id})`; // eslint-disable-line camelcase
             }).reverse().join('\n')
         ].join('\n\n')));
-    }
+    });
 
-    fetchDependantRepos({ packageName }) {
-        log(`fetchDependantRepos ${packageName}`);
+    fetchDependantRepos = log(({ packageName, logger }) => {
+        logger.trace(`fetchDependantRepos ${packageName}`);
 
         return Q.fcall(() => (
-            this.fetchRepos()
+            this.fetchRepos({ logger })
         )).then(repos => (
             filter(repos, ({ id }) => (
                 Q.fcall(() => (
@@ -143,13 +138,13 @@ export default class GitLab {
                 )).catch(() => false)
             ))
         ));
-    }
+    });
 
-    createMergeRequest({ body, title, head, repo, accept }) {
-        log(`createMergeRequest ${title}, ${head}, ${repo}, ${accept}`);
+    createMergeRequest = log(({ body, title, head, repo, accept, logger }) => {
+        logger.trace(`createMergeRequest ${title}, ${head}, ${repo}, ${accept}`);
 
         return Q.fcall(() => (
-            this.fetchRepo({ repo })
+            this.fetchRepo({ repo, logger })
         )).then(({ id }) => (
             Q.fcall(() => (
                 this.paginate({
@@ -192,7 +187,7 @@ export default class GitLab {
                 });
             }).then(mr => {
                 if (accept) {
-                    log('accepting merge request');
+                    logger.trace('accepting merge request');
 
                     const isIssueOpen = true; // https://gitlab.com/gitlab-org/gitlab-ce/issues/22740
 
@@ -206,7 +201,7 @@ export default class GitLab {
                         )).tap(pipeline => {
                             assert(pipeline, `pipeline for ${mr.sha} required`);
                         }).tap(() => (
-                            log('waiting for pipeline')
+                            logger.trace('waiting for pipeline')
                         )).then(pipeline => (
                             Q.fcall(() => (
                                 // wait for the pipeline to complete
@@ -214,24 +209,25 @@ export default class GitLab {
                                     this.api({
                                         uri: `/projects/${id}/pipelines/${pipeline.id}`
                                     }).then(({ status }) => {
-                                        log(`status ${status}`);
+                                        logger.trace(`pipeline status ${status}`);
                                         return status !== 'running';
                                     })
                                 ), 60000)
-                            )).then(() => (
+                            )).then(() => {
+                                logger.trace('pipeline no longer running');
                                 // ensure the pipeline was successful
-                                this.api({
+                                return this.api({
                                     uri: `/projects/${id}/pipelines/${pipeline.id}`
                                 }).then(({ status }) => {
-                                    log(`pipeline status ${status}`);
+                                    logger.trace(`pipeline status ${status}`);
                                     assert.equal(status, 'success');
-                                })
-                            )).then(() => (
+                                });
+                            }).then(() => (
                                 // ensure that the mr hasn't been updated
                                 this.api({
                                     uri: `/projects/${id}/merge_request/${mr.id}`
                                 }).then(({ sha }) => {
-                                    log(`merge request update check ${mr.sha} ${sha}`);
+                                    logger.trace(`merge request update check ${mr.sha} ${sha}`);
                                     assert.equal(sha, mr.sha);
                                 })
                             ))
@@ -245,12 +241,13 @@ export default class GitLab {
                                 merge_when_build_succeeds: true
                             }
                         }).then(() => {
-                            log(`merge request ${title} ${head} ${repo} merged`);
+                            logger.trace(`merged merge request ${title} ${head} ${repo}`);
                         })
                     ));
                 }
+                logger.trace('not auto merging merge request');
                 return Q.resolve();
             })
         ));
-    }
+    });
 }

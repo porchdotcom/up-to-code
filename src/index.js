@@ -2,24 +2,20 @@ import Q from 'q';
 import path from 'path';
 import GitHub from './github';
 import GitLab from './gitlab';
-import debug from 'debug';
 import assert from 'assert';
 import exec from './exec';
 import url from 'url';
 import updateDependency from './pkg';
 import { major } from 'semver';
-
-import './debug-truncated-objects-plugin';
-
-const log = debug('porch:uptocode');
+import log from './log';
 
 const GITHUB_HOSTNAME = 'github.com';
 
 const getPackageBranchName = packageName => `up-to-code-${packageName}`;
 
-const getPackageChangeMarkdown = ({ base, head, packageName, gitlabHost, githubOrg, githubToken, gitlabOrg, gitlabToken }) => (
+const getPackageChangeMarkdown = log(({ base, head, packageName, gitlabHost, githubOrg, githubToken, gitlabOrg, gitlabToken, logger }) => (
     Q.fcall(() => (
-        exec(`npm view ${packageName} repository.url`)
+        exec(`npm view ${packageName} repository.url`, { logger })
     )).then(stdout => (
         url.parse(stdout).hostname
     )).then(hostname => {
@@ -31,35 +27,50 @@ const getPackageChangeMarkdown = ({ base, head, packageName, gitlabHost, githubO
 
         if (isGithubHosted) {
             const github = new GitHub({ org: githubOrg, token: githubToken });
-            return github.createPackageChangeMarkdown({ repo: packageName, base, head });
+            return github.createPackageChangeMarkdown({ repo: packageName, base, head, logger });
         }
         if (isGitlabHosted) {
             const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
-            return gitlab.createPackageChangeMarkdown({ repo: packageName, base, head });
+            return gitlab.createPackageChangeMarkdown({ repo: packageName, base, head, logger });
         }
 
         // redundant...should be caught above
+        logger.error('git repo not found');
         throw new Error('git repo not found');
+    }).catch(err => {
+        logger.error({ err });
+        throw err;
     })
-);
+));
 
-const updateGithubRepoDependency = ({
-    name,
+const updateGithubRepoDependency = log(({
+    repo,
     packageName,
     githubToken,
     githubOrg,
     gitlabHost,
     gitlabOrg,
-    gitlabToken
+    gitlabToken,
+    logger
 }) => {
-    log(`time to clone and update github repo ${name}`);
-    const cwd = `repos/github/${name}`;
+    logger.trace(`time to clone and update github repo ${repo}`);
+    const cwd = `repos/github/${repo}`;
     return Q.fcall(() => (
-        exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${name}.git ${cwd}`)
+        logger.trace('clone')
     )).then(() => (
-        exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
+        exec(`git clone --depth 1 https://${githubToken}@github.com/${githubOrg}/${repo}.git ${cwd}`, { logger })
     )).then(() => (
-        updateDependency(path.resolve(cwd, 'package.json'), packageName)
+        logger.trace('checkout')
+    )).then(() => (
+        exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd, logger })
+    )).then(() => (
+        logger.trace('version bump')
+    )).then(() => (
+        updateDependency({
+            path: path.resolve(cwd, 'package.json'),
+            packageName,
+            logger
+        })
     )).then(([before, after]) => (
         getPackageChangeMarkdown({
             packageName,
@@ -69,44 +80,57 @@ const updateGithubRepoDependency = ({
             githubOrg,
             githubToken,
             gitlabOrg,
-            gitlabToken
+            gitlabToken,
+            logger
         })
     )).then(body => (
-        Q.fcall(() => (
-            exec(`git commit -a -m "Up-to-code bump of ${packageName}"`, { cwd })
-        )).then(() => (
-            exec('git push -fu origin HEAD', { cwd })
-        )).then(() => {
-            const github = new GitHub({ org: githubOrg, token: githubToken });
+        Q.fcall(() => {
+            logger.trace('commit');
+            return exec(`git commit -a -m "Up-to-code bump of ${packageName}"`, { cwd, logger });
+        }).then(() => {
+            logger.trace('push');
+            return exec('git push -fu origin HEAD', { cwd, logger });
+        }).then(() => {
+            logger.trace('create pull request');
+            const github = new GitHub({ org: githubOrg, token: githubToken, logger });
             return github.createPullRequest({
                 body,
                 title: `Up to code - ${packageName}`,
                 head: getPackageBranchName(packageName),
-                repo: name
+                repo,
+                logger
             });
         })
     ));
-};
+});
 
-export const updateGitlabRepoDependency = ({
-    name,
+export const updateGitlabRepoDependency = log(({
+    repo,
     packageName,
     githubToken,
     githubOrg,
     gitlabHost,
     gitlabOrg,
     gitlabToken,
-    gitlabUser
+    gitlabUser,
+    logger
 }) => {
-    log(`time to clone and update gitlab repo ${name}`);
-    const cwd = `repos/gitlab/${name}`;
-    return Q.fcall(() => (
-        exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${name}.git ${cwd}`)
-    )).then(() => (
-        exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd })
-    )).then(() => (
-        updateDependency(path.resolve(cwd, 'package.json'), packageName)
-    )).then(([before, after]) => (
+    logger.trace(`time to clone and update gitlab repo ${repo}`);
+    const cwd = `repos/gitlab/${repo}`;
+    return Q.fcall(() => {
+        logger.trace('clone');
+        return exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${repo}.git ${cwd}`, { logger });
+    }).then(() => {
+        logger.trace('checkout');
+        return exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd, logger });
+    }).then(() => {
+        logger.trace('version bump');
+        return updateDependency({
+            path: path.resolve(cwd, 'package.json'),
+            packageName,
+            logger
+        });
+    }).then(([before, after]) => (
         Q.fcall(() => (
             getPackageChangeMarkdown({
                 packageName,
@@ -116,70 +140,79 @@ export const updateGitlabRepoDependency = ({
                 githubOrg,
                 githubToken,
                 gitlabOrg,
-                gitlabToken
+                gitlabToken,
+                logger
             })
         )).then(body => (
-            Q.fcall(() => (
-                exec('git diff', { cwd })
-            )).then(() => (
-                exec(`git commit -a -m "Up to code bump of ${packageName}"`, { cwd })
-            )).then(() => (
-                exec('git push -fu origin HEAD', { cwd })
-            )).then(() => {
-                const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
+            Q.fcall(() => {
+                logger.trace('diff');
+                return exec('git diff', { cwd, logger });
+            }).then(() => {
+                logger.trace('commit');
+                return exec(`git commit -a -m "Up to code bump of ${packageName}"`, { cwd, logger });
+            }).then(() => {
+                logger.trace('push');
+                return exec('git push -fu origin HEAD', { cwd, logger });
+            }).then(() => {
+                logger.trace('create merge request');
+                const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost, logger });
                 return gitlab.createMergeRequest({
                     body,
                     title: `Up to code - ${packageName}`,
                     head: getPackageBranchName(packageName),
-                    repo: name,
-                    accept: major(before) === major(after)
+                    repo,
+                    accept: major(before) === major(after),
+                    logger
                 });
             })
         ))
     ));
-};
+});
 
-export default ({
+export default log(({
     packageName,
     githubOrg,
     githubToken,
     gitlabOrg,
     gitlabToken,
     gitlabHost,
-    gitlabUser
+    gitlabUser,
+    logger
 }) => {
-    log(`uptocode ${packageName}`);
+    logger.trace(`${packageName}`);
 
     const github = new GitHub({ org: githubOrg, token: githubToken });
     const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
 
     return Q.all([
         Q.fcall(() => (
-            github.fetchDependantRepos({ packageName })
-        )).then(githubRepos => Q.allSettled(githubRepos.map(({ name }) => (
+            github.fetchDependantRepos({ packageName, logger })
+        )).then(githubRepos => Q.allSettled(githubRepos.map(({ name: repo }) => (
             updateGithubRepoDependency({
-                name,
-                packageName,
-                githubToken,
-                githubOrg,
-                gitlabHost,
-                gitlabOrg,
-                gitlabToken
-            })
-        )))),
-        Q.fcall(() => (
-            gitlab.fetchDependantRepos({ packageName })
-        )).then(gitlabRepos => Q.allSettled(gitlabRepos.map(({ name }) => (
-            updateGitlabRepoDependency({
-                name,
+                repo,
                 packageName,
                 githubToken,
                 githubOrg,
                 gitlabHost,
                 gitlabOrg,
                 gitlabToken,
-                gitlabUser
+                logger
+            })
+        )))),
+        Q.fcall(() => (
+            gitlab.fetchDependantRepos({ packageName, logger })
+        )).then(gitlabRepos => Q.allSettled(gitlabRepos.map(({ name: repo }) => (
+            updateGitlabRepoDependency({
+                repo,
+                packageName,
+                githubToken,
+                githubOrg,
+                gitlabHost,
+                gitlabOrg,
+                gitlabToken,
+                gitlabUser,
+                logger
             })
         ))))
     ]);
-};
+});

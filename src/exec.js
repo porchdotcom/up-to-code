@@ -1,20 +1,14 @@
 import Q from 'q';
 import childProcess from 'child_process';
-import debug from 'debug';
-const log = debug('porch:uptocode:exec');
 
-export default (cmd, options = {}) => {
-    log(`EXEC: ${cmd}`);
+export default (cmd, { logger, ...options } = {}) => {
     const defer = Q.defer();
+    logger.trace(`exec ${cmd}`);
     childProcess.exec(cmd, {
         ...options
     }, defer.makeNodeResolver());
     return defer.promise.spread((stdout, stderr) => {
-        log(`stdout ${stdout}`);
-        log(`stderr ${stderr}`);
+        logger.trace({ stdout, stderr });
         return stdout;
-    }).catch(err => {
-        log(`EXEC FAILURE: ${cmd} ${err.message} ${err.stack}`);
-        throw err;
     });
 };

@@ -1,9 +1,7 @@
 import assert from 'assert';
 import parseArgs from 'minimist';
 import uptocode from '../src';
-import debug from 'debug';
-
-const log = debug('porch:uptocode');
+import logger from './logger';
 
 const {
     'package-name': packageName,
@@ -30,11 +28,12 @@ uptocode({
     gitlabOrg,
     gitlabToken,
     gitlabHost,
-    gitlabUser
+    gitlabUser,
+    logger
 }).then(() => {
-    log('success');
+    logger.info('success');
     process.exit(0);
 }).catch(err => {
-    log(`err ${err.stack}`);
+    logger.info(`err ${err.stack}`);
     process.exit(1);
 });

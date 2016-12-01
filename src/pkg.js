@@ -7,17 +7,17 @@ import { memoize } from 'lodash';
 // update to exact versions
 // return whether the new version is not a major bump (ie, safe to merge without review)
 const exactVersion = version => version.match(semverRegex())[0];
-const getPublishedVersion = memoize(packageName => (
-    exec(`npm view ${packageName} version`).then(version => version.trim())
+const getPublishedVersion = memoize((packageName, logger) => (
+    exec(`npm view ${packageName} version`, { logger }).then(version => version.trim())
 ));
 
-const getVersion = (path, packageName) => (
+const getVersion = ({ path, packageName, logger }) => (
     Q.fcall(() => (
         jsonFile(path)
     )).then(file => (
         Q.all([
             file.get(),
-            getPublishedVersion(packageName)
+            getPublishedVersion(packageName, logger)
         ]).spread(({
             dependencies = {},
             devDependencies = {},
@@ -37,13 +37,13 @@ const getVersion = (path, packageName) => (
     ))
 );
 
-const updateVersion = (path, packageName) => (
+const updateVersion = ({ path, packageName, logger }) => (
     Q.fcall(() => (
         jsonFile(path)
     )).then(file => (
         Q.all([
             file.get(),
-            getPublishedVersion(packageName)
+            getPublishedVersion(packageName, logger)
         ]).spread(({
             dependencies = {},
             devDependencies = {},
@@ -77,14 +77,14 @@ const updateVersion = (path, packageName) => (
     ))
 );
 
-export default (path, packageName) => (
+export default ({ path, packageName, logger }) => (
     Q.fcall(() => (
-        getVersion(path, packageName)
+        getVersion({ path, packageName, logger })
     )).then(before => (
         Q.fcall(() => (
-            updateVersion(path, packageName)
+            updateVersion({ path, packageName, logger })
         )).then(() => (
-            getVersion(path, packageName)
+            getVersion({ path, packageName, logger })
         )).then(after => (
             [before, after]
         ))

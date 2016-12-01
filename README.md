@@ -35,7 +35,6 @@ docker command like this:
         -e npm_config_email=npm@example.com \
         -e npm_config_always_auth=true \
         -e npm_config__auth=npmpassword \
-        -e DEBUG="porch:uptocode*" \
         porchdotcom/up-to-code:latest \
         --package-name=awesome-js-library \
         --github-org=myorg \
@@ -93,10 +92,6 @@ a private npm registry:
     npm_config_registry
     npm_config__auth
 
-
-### DEBUG="porch:uptocode*"
-
-Enable verbose logging for Up-to-code
 
 # Supported platforms
 

@@ -1,11 +1,8 @@
 import Q from 'q';
 import GitHubApi from 'github';
-import debug from 'debug';
 import { uniqBy } from 'lodash';
 import assert from 'assert';
 import { filter } from './promises';
-
-const log = debug('porch:uptocode:github');
 
 const PAGE_LENGTH = 100;
 const HELPSCORE_SCM = 'helpscore-scm';
@@ -22,8 +19,8 @@ export default class GitHub {
         this.org = org;
     }
 
-    fetchRepos() {
-        log('fetchRepos');
+    fetchRepos({ logger }) {
+        logger.trace('fetchRepos');
 
         const getReposPage = page => {
             const defer = Q.defer();
@@ -47,15 +44,15 @@ export default class GitHub {
         )).then(repos => (
             repos.filter(({ permissions: { push }}) => !!push)
         )).tap(repos => (
-            log(`${repos.length} repos found`)
+            logger.trace(`${repos.length} repos found`)
         ));
     }
 
-    fetchDependantRepos({ packageName }) {
-        log(`fetchDependantRepos ${packageName}`);
+    fetchDependantRepos({ packageName, logger }) {
+        logger.trace(`fetchDependantRepos ${packageName}`);
 
         return Q.fcall(() => (
-            this.fetchRepos()
+            this.fetchRepos({ logger })
         )).then(repos => (
             repos.filter(({ language }) => /javascript/i.test(language))
         )).then(repos => (
@@ -79,8 +76,8 @@ export default class GitHub {
         ));
     }
 
-    createPullRequest({ body, title, head, repo }) {
-        log(`createPullRequest ${title}, ${head}, ${repo}`);
+    createPullRequest({ body, title, head, repo, logger }) {
+        logger.trace(`createPullRequest ${title}, ${head}, ${repo}`);
 
         return Q.fcall(() => {
             const defer = Q.defer();
@@ -118,8 +115,8 @@ export default class GitHub {
         });
     }
 
-    createPackageChangeMarkdown({ repo, head, base }) {
-        log(`createPackageChangeMarkdown ${base}, ${head}, ${repo}`);
+    createPackageChangeMarkdown({ repo, head, base, logger }) {
+        logger.trace(`createPackageChangeMarkdown ${base}, ${head}, ${repo}`);
 
         return Q.fcall(() => {
             const defer = Q.defer();
