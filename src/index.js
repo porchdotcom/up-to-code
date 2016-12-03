@@ -7,13 +7,13 @@ import exec from './exec';
 import url from 'url';
 import updateDependency from './pkg';
 import { major } from 'semver';
-import log from './log';
+import decorateFunctionLogger from './decorate-function-logger';
 
 const GITHUB_HOSTNAME = 'github.com';
 
 const getPackageBranchName = packageName => `up-to-code-${packageName}`;
 
-const getPackageChangeMarkdown = log(({ base, head, packageName, gitlabHost, githubOrg, githubToken, gitlabOrg, gitlabToken, logger }) => (
+const getPackageChangeMarkdown = decorateFunctionLogger(({ base, head, packageName, gitlabHost, githubOrg, githubToken, gitlabOrg, gitlabToken, logger }) => (
     Q.fcall(() => (
         exec(`npm view ${packageName} repository.url`, { logger })
     )).then(stdout => (
@@ -43,7 +43,7 @@ const getPackageChangeMarkdown = log(({ base, head, packageName, gitlabHost, git
     })
 ));
 
-const updateGithubRepoDependency = log(({
+const updateGithubRepoDependency = decorateFunctionLogger(({
     repo,
     packageName,
     githubToken,
@@ -104,7 +104,7 @@ const updateGithubRepoDependency = log(({
     ));
 });
 
-export const updateGitlabRepoDependency = log(({
+export const updateGitlabRepoDependency = decorateFunctionLogger(({
     repo,
     packageName,
     githubToken,
@@ -169,7 +169,7 @@ export const updateGitlabRepoDependency = log(({
     ));
 });
 
-export default log(({
+export default decorateFunctionLogger(({
     packageName,
     githubOrg,
     githubToken,

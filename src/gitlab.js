@@ -4,7 +4,7 @@ import request from 'request';
 import url from 'url';
 import { memoize, uniqBy } from 'lodash';
 import { filter, until } from './promises';
-import log from './log';
+import decorateFunctionLogger from './decorate-function-logger';
 
 const PAGE_LENGTH = 100;
 
@@ -61,7 +61,7 @@ export default class GitLab {
         this.org = org;
     }
 
-    fetchRepo = log(({ repo, logger }) => {
+    fetchRepo = decorateFunctionLogger(({ repo, logger }) => {
         logger.trace(`fetchRepo ${repo}`);
 
         return Q.fcall(() => (
@@ -73,7 +73,7 @@ export default class GitLab {
         });
     });
 
-    fetchRepos = log(({ logger }) => {
+    fetchRepos = decorateFunctionLogger(({ logger }) => {
         logger.trace('fetchRepos');
         return Q.fcall(() => (
             this.paginate({
@@ -87,7 +87,7 @@ export default class GitLab {
         ));
     });
 
-    createPackageChangeMarkdown = log(({ base, head, repo, logger }) => {
+    createPackageChangeMarkdown = decorateFunctionLogger(({ base, head, repo, logger }) => {
         logger.trace(`createPackageChangeMarkdown ${base} ${head} ${repo}`);
 
         return Q.fcall(() => (
@@ -116,7 +116,7 @@ export default class GitLab {
         ].join('\n\n')));
     });
 
-    fetchDependantRepos = log(({ packageName, logger }) => {
+    fetchDependantRepos = decorateFunctionLogger(({ packageName, logger }) => {
         logger.trace(`fetchDependantRepos ${packageName}`);
 
         return Q.fcall(() => (
@@ -140,7 +140,7 @@ export default class GitLab {
         ));
     });
 
-    createMergeRequest = log(({ body, title, head, repo, accept, logger }) => {
+    createMergeRequest = decorateFunctionLogger(({ body, title, head, repo, accept, logger }) => {
         logger.trace(`createMergeRequest ${title}, ${head}, ${repo}, ${accept}`);
 
         return Q.fcall(() => (
