@@ -10,7 +10,8 @@ const {
     'gitlab-org': gitlabOrg,
     'gitlab-user': gitlabUser,
     'gitlab-token': gitlabToken,
-    'gitlab-host': gitlabHost
+    'gitlab-host': gitlabHost,
+    metadata
 } = parseArgs(process.argv.slice(2));
 
 assert(packageName, 'npm module required');
@@ -29,6 +30,7 @@ uptocode({
     gitlabToken,
     gitlabHost,
     gitlabUser,
+    metadata,
     logger
 }).then(() => {
     logger.info('success');

@@ -51,6 +51,7 @@ const updateGithubRepoDependency = decorateFunctionLogger(({
     gitlabHost,
     gitlabOrg,
     gitlabToken,
+    metadata,
     logger
 }) => {
     logger.trace(`time to clone and update github repo ${repo}`);
@@ -94,7 +95,7 @@ const updateGithubRepoDependency = decorateFunctionLogger(({
             logger.trace('create pull request');
             const github = new GitHub({ org: githubOrg, token: githubToken, logger });
             return github.createPullRequest({
-                body,
+                body: `${body}${metadata ? `\n\n> ${metadata}` : ''}`,
                 title: `Up to code - ${packageName}`,
                 head: getPackageBranchName(packageName),
                 repo,
@@ -113,6 +114,7 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
     gitlabOrg,
     gitlabToken,
     gitlabUser,
+    metadata,
     logger
 }) => {
     logger.trace(`time to clone and update gitlab repo ${repo}`);
@@ -157,7 +159,7 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 logger.trace('create merge request');
                 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost, logger });
                 return gitlab.createMergeRequest({
-                    body,
+                    body: `${body}${metadata ? `\n\n> ${metadata}` : ''}`,
                     title: `Up to code - ${packageName}`,
                     head: getPackageBranchName(packageName),
                     repo,
@@ -177,6 +179,7 @@ export default decorateFunctionLogger(({
     gitlabToken,
     gitlabHost,
     gitlabUser,
+    metadata,
     logger
 }) => {
     logger.trace(`${packageName}`);
@@ -196,6 +199,7 @@ export default decorateFunctionLogger(({
                 gitlabHost,
                 gitlabOrg,
                 gitlabToken,
+                metadata,
                 logger
             })
         )))),
@@ -211,6 +215,7 @@ export default decorateFunctionLogger(({
                 gitlabOrg,
                 gitlabToken,
                 gitlabUser,
+                metadata,
                 logger
             })
         ))))
