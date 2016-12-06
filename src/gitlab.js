@@ -8,16 +8,17 @@ import decorateFunctionLogger from './decorate-function-logger';
 
 const PAGE_LENGTH = 100;
 
-const apiRaw = options => {
+const apiRaw = decorateFunctionLogger(({ logger, ...options }) => {
     const defer = Q.defer();
     request(options, defer.makeNodeResolver());
     return defer.promise.spread((res, body) => {
+        logger.trace({ statusCode: res.statusCode }, 'api request');
         assert(res.statusCode < 400, body);
         return body;
     });
-};
+});
 
-const apiCached = memoize(apiRaw, JSON.stringify);
+const apiCached = memoize(apiRaw, ({ logger, ...options }) => JSON.stringify(options)); // eslint-disable-line no-unused-vars
 
 const api = ({ cached = false, ...options }) => cached ? apiCached(options) : apiRaw(options);
 
@@ -77,6 +78,7 @@ export default class GitLab {
         logger.trace('fetchRepos');
         return Q.fcall(() => (
             this.paginate({
+                logger,
                 cached: true,
                 uri: '/projects'
             })
@@ -94,6 +96,7 @@ export default class GitLab {
             this.fetchRepo({ repo, logger })
         )).then(({ id }) => (
             this.api({
+                logger,
                 cached: true,
                 uri: `/projects/${id}/repository/compare`,
                 qs: {
@@ -125,6 +128,7 @@ export default class GitLab {
             filter(repos, ({ id }) => (
                 Q.fcall(() => (
                     this.api({
+                        logger,
                         cached: true,
                         uri: `/projects/${id}/repository/blobs/master`,
                         qs: {
@@ -148,6 +152,7 @@ export default class GitLab {
         )).then(({ id }) => (
             Q.fcall(() => (
                 this.paginate({
+                    logger,
                     uri: `/projects/${id}/merge_requests`,
                     qs: {
                         state: 'opened'
@@ -167,6 +172,7 @@ export default class GitLab {
 
                     const [mr] = mrs;
                     return this.api({
+                        logger,
                         method: 'PUT',
                         uri: `/projects/${id}/merge_requests/${mr.id}`,
                         body: {
@@ -176,6 +182,7 @@ export default class GitLab {
                     });
                 }
                 return this.api({
+                    logger,
                     method: 'POST',
                     uri: `/projects/${id}/merge_requests`,
                     body: {
@@ -194,6 +201,7 @@ export default class GitLab {
                     return Q.fcall(() => {
                         return isIssueOpen && Q.fcall(() => (
                             this.paginate({
+                                logger,
                                 uri: `/projects/${id}/pipelines`
                             })
                         )).then(pipelines => (
@@ -207,6 +215,7 @@ export default class GitLab {
                                 // wait for the pipeline to complete
                                 until(() => (
                                     this.api({
+                                        logger,
                                         uri: `/projects/${id}/pipelines/${pipeline.id}`
                                     }).then(({ status }) => {
                                         logger.trace(`pipeline status ${status}`);
@@ -217,6 +226,7 @@ export default class GitLab {
                                 logger.trace('pipeline no longer running');
                                 // ensure the pipeline was successful
                                 return this.api({
+                                    logger,
                                     uri: `/projects/${id}/pipelines/${pipeline.id}`
                                 }).then(({ status }) => {
                                     logger.trace(`pipeline status ${status}`);
@@ -225,6 +235,7 @@ export default class GitLab {
                             }).then(() => (
                                 // ensure that the mr hasn't been updated
                                 this.api({
+                                    logger,
                                     uri: `/projects/${id}/merge_request/${mr.id}`
                                 }).then(({ sha }) => {
                                     logger.trace(`merge request update check ${mr.sha} ${sha}`);
@@ -234,6 +245,7 @@ export default class GitLab {
                         ));
                     }).then(() => (
                         this.api({
+                            logger,
                             method: 'PUT',
                             uri: `/projects/${id}/merge_requests/${mr.id}/merge`,
                             body: {

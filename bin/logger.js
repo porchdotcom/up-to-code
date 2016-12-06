@@ -1,6 +1,6 @@
 import bunyan from 'bunyan';
 import PrettyStream from 'bunyan-prettystream';
-import { isString, truncate } from 'lodash';
+import { isString, isPlainObject, truncate } from 'lodash';
 
 const prettyStdOut = new PrettyStream();
 prettyStdOut.pipe(process.stdout);
@@ -15,6 +15,13 @@ export default bunyan.createLogger({
     src: true,
     serializers: {
         ...bunyan.stdSerializers,
-        body: body => isString(body) ? truncate(body) : body
+        body: body => {
+            if (isString(body)) {
+                return truncate(body);
+            } else if (isPlainObject(body)) {
+                return JSON.parse(JSON.stringify(body, (k, v) => isString(v) ? truncate(v) : v));
+            }
+            return body;
+        }
     }
 });
