@@ -1,7 +1,7 @@
 import assert from 'assert';
 import parseArgs from 'minimist';
 import uptocode from '../src';
-import logger from './logger';
+import logger from '../src/logger';
 
 const {
     'package-name': packageName,
