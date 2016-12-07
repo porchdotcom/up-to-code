@@ -219,7 +219,7 @@ export default class GitLab {
                                         uri: `/projects/${id}/pipelines/${pipeline.id}`
                                     }).then(({ status }) => {
                                         logger.trace(`pipeline status ${status}`);
-                                        return status !== 'running' && status !== 'pending';
+                                        return status !== 'running' && status !== 'pending' && status !== 'created';
                                     })
                                 ), 60000)
                             )).then(() => {
