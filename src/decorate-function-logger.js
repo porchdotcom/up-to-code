@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { omit } from 'lodash';
+import newrelic from 'newrelic';
 
 const blacklist = [
     'githubOrg',
@@ -13,6 +14,7 @@ export default fn => ({ logger, ...rest }) => {
     assert(logger, 'function expected logger argument');
     return fn({ logger: logger.child(omit(rest, blacklist)), ...rest }).catch(err => {
         logger.error({ err });
+        newrelic.noticeError(err, logger.fields);
         throw err;
     });
 };

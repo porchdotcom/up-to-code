@@ -1,3 +1,4 @@
 node_modules
 repos
 .env
+newrelic_agent.log
