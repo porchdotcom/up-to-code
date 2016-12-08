@@ -1,5 +1,6 @@
 import bunyan from 'bunyan';
 import PrettyStream from 'bunyan-prettystream';
+import NewRelicStream from './bunyan-newrelic-stream';
 import { isString, isPlainObject, truncate } from 'lodash';
 
 const prettyStdOut = new PrettyStream();
@@ -11,6 +12,10 @@ export default bunyan.createLogger({
         level: 'trace',
         type: 'raw',
         stream: prettyStdOut
+    }, {
+        level: 'error',
+        type: 'raw',
+        stream: new NewRelicStream()
     }],
     src: true,
     serializers: {
