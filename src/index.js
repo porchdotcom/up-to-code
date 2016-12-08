@@ -34,10 +34,10 @@ const getPackageChangeMarkdown = decorateFunctionLogger(({ base, head, packageNa
             const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
             return gitlab.createPackageChangeMarkdown({ repo: packageName, base, head, logger });
         }
-
-        // redundant...should be caught above
-        logger.error('git repo not found');
         throw new Error('git repo not found');
+    }).catch(error => {
+        logger.error({ error });
+        throw error;
     })
 ));
 
