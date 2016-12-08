@@ -1,6 +1,5 @@
 import assert from 'assert';
 import { omit } from 'lodash';
-import cleanStack from 'clean-stack';
 
 const blacklist = [
     'githubOrg',
@@ -10,10 +9,10 @@ const blacklist = [
     'gitlabHost',
     'gitlabUser'
 ];
-export default fn => ({ logger, ...rest }) => {
-    assert(logger, 'function expected logger argument');
-    return fn({ logger: logger.child(omit(rest, blacklist)), ...rest }).catch(err => {
-        err.stack = cleanStack(err.stack);
+export default fn => ({ logger: parentLogger, ...rest }) => {
+    assert(parentLogger, 'function expected logger argument');
+    const logger = parentLogger.child(omit(rest, blacklist));
+    return fn({ logger, ...rest }).catch(err => {
         logger.error({ err });
         throw err;
     });
