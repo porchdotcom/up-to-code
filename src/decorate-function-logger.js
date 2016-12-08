@@ -1,4 +1,3 @@
-import newrelic from 'newrelic';
 import assert from 'assert';
 import { omit } from 'lodash';
 
