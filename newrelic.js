@@ -125,7 +125,7 @@ exports.config = {
    *
    * @env NEW_RELIC_CAPTURE_PARAMS
    */
-  capture_params: false,
+  capture_params: true,
   /**
    * Array of parameters you don't want captured off request URLs in slow
    * transaction traces and error traces.
