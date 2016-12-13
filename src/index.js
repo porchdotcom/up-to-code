@@ -1,3 +1,4 @@
+import newrelic from 'newrelic';
 import Q from 'q';
 import path from 'path';
 import GitHub from './github';
@@ -33,13 +34,10 @@ const getPackageChangeMarkdown = decorateFunctionLogger(({ base, head, packageNa
             const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost });
             return gitlab.createPackageChangeMarkdown({ repo: packageName, base, head, logger });
         }
-
-        // redundant...should be caught above
-        logger.error('git repo not found');
         throw new Error('git repo not found');
-    }).catch(err => {
-        logger.error({ err });
-        throw err;
+    }).catch(error => {
+        logger.error({ error });
+        throw error;
     })
 ));
 
@@ -102,6 +100,8 @@ const updateGithubRepoDependency = decorateFunctionLogger(({
                 logger
             });
         })
+    )).catch(error => (
+        logger.error({ error })
     ));
 });
 
@@ -168,8 +168,21 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 });
             })
         ))
+    )).catch(error => (
+        logger.error({ error })
     ));
 });
+
+const createNewRelicTransaction = fn => (
+    newrelic.createBackgroundTransaction('up-to-code', () => (
+        Q.fcall(() => (
+            fn()
+        )).finally(() => (
+            newrelic.endTransaction()
+        ))
+    ))()
+);
+
 
 export default decorateFunctionLogger(({
     packageName,
@@ -191,33 +204,41 @@ export default decorateFunctionLogger(({
         Q.fcall(() => (
             github.fetchDependantRepos({ packageName, logger })
         )).then(githubRepos => Q.allSettled(githubRepos.map(({ name: repo }) => (
-            updateGithubRepoDependency({
-                repo,
-                packageName,
-                githubToken,
-                githubOrg,
-                gitlabHost,
-                gitlabOrg,
-                gitlabToken,
-                metadata,
-                logger
-            })
+            createNewRelicTransaction(() => (
+                updateGithubRepoDependency({
+                    repo,
+                    packageName,
+                    githubToken,
+                    githubOrg,
+                    gitlabHost,
+                    gitlabOrg,
+                    gitlabToken,
+                    metadata,
+                    logger
+                })
+            ))
         )))),
         Q.fcall(() => (
             gitlab.fetchDependantRepos({ packageName, logger })
         )).then(gitlabRepos => Q.allSettled(gitlabRepos.map(({ name: repo }) => (
-            updateGitlabRepoDependency({
-                repo,
-                packageName,
-                githubToken,
-                githubOrg,
-                gitlabHost,
-                gitlabOrg,
-                gitlabToken,
-                gitlabUser,
-                metadata,
-                logger
-            })
+            createNewRelicTransaction(() => (
+                updateGitlabRepoDependency({
+                    repo,
+                    packageName,
+                    githubToken,
+                    githubOrg,
+                    gitlabHost,
+                    gitlabOrg,
+                    gitlabToken,
+                    gitlabUser,
+                    metadata,
+                    logger
+                })
+            ))
         ))))
-    ]);
+    ]).finally(() => {
+        const defer = Q.defer();
+        newrelic.shutdown({ collectPendingData: true }, defer.makeNodeResolver());
+        return defer.promise;
+    });
 });
