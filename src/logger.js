@@ -1,7 +1,7 @@
 import bunyan from 'bunyan';
 import PrettyStream from 'bunyan-prettystream';
-import NewRelicStream from './bunyan-newrelic-stream';
-import errorSerializer from './bunyan-error-serializer';
+import NewRelicStream from 'bunyan-newrelic-stream';
+import errorSerializer from 'bunyan-error-serializer';
 import truncateSerializer from './bunyan-truncate-serializer';
 
 const prettyStdOut = new PrettyStream();
