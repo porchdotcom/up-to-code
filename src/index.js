@@ -157,13 +157,14 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 return exec('git push -fu origin HEAD', { cwd, logger });
             }).then(() => {
                 logger.trace('create merge request');
+                const accept = major(before) === major(after);
                 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost, logger });
                 return gitlab.createMergeRequest({
                     body: `${body}${metadata ? `\n\n> ${metadata}` : ''}`,
-                    title: `Up to code - ${packageName}`,
+                    title: `${accept ? '' : 'WIP: ' }Up to code - ${packageName}`,
                     head: getPackageBranchName(packageName),
                     repo,
-                    accept: major(before) === major(after),
+                    accept,
                     logger
                 });
             })
