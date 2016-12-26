@@ -22,7 +22,6 @@ export default bunyan.createLogger({
     serializers: {
         ...bunyan.stdSerializers,
         err: errorSerializer,
-        error: errorSerializer,
         body: truncateSerializer
     }
 });

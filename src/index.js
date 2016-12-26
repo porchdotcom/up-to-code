@@ -9,6 +9,7 @@ import url from 'url';
 import updateDependency from './pkg';
 import { major } from 'semver';
 import decorateFunctionLogger from './decorate-function-logger';
+import parse from 'git-url-parse';
 
 const GITHUB_HOSTNAME = 'github.com';
 
@@ -18,12 +19,12 @@ const getPackageChangeMarkdown = decorateFunctionLogger(({ base, head, packageNa
     Q.fcall(() => (
         exec(`npm view ${packageName} repository.url`, { logger })
     )).then(stdout => (
-        url.parse(stdout).hostname
+        parse(stdout).resource
     )).then(hostname => {
         const isGithubHosted = hostname === GITHUB_HOSTNAME;
         const isGitlabHosted = hostname === gitlabHost;
 
-        assert(isGithubHosted || isGitlabHosted, 'git repo not found');
+        assert(isGithubHosted || isGitlabHosted, `git host could not be determined from package "${packageName}" repository url "${hostname}`);
         assert(!!isGithubHosted ^ !!isGitlabHosted, 'multiple git repos found');
 
         if (isGithubHosted) {
@@ -100,8 +101,8 @@ const updateGithubRepoDependency = decorateFunctionLogger(({
                 logger
             });
         })
-    )).catch(error => (
-        logger.error({ error })
+    )).catch(err => (
+        logger.error(err)
     ));
 });
 
@@ -169,8 +170,8 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 });
             })
         ))
-    )).catch(error => (
-        logger.error({ error })
+    )).catch(err => (
+        logger.error(err)
     ));
 });
 
