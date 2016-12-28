@@ -5,7 +5,6 @@ import GitHub from './github';
 import GitLab from './gitlab';
 import assert from 'assert';
 import exec from './exec';
-import url from 'url';
 import updateDependency from './pkg';
 import { major } from 'semver';
 import decorateFunctionLogger from './decorate-function-logger';
