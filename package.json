@@ -14,7 +14,7 @@
   "dependencies": {
     "babel-cli": "^6.6.5",
     "babel-polyfill": "^6.13.0",
-    "babel-preset-porch": "^1.0.1",
+    "babel-preset-porch": "2.3.1",
     "babel-register": "^6.11.6",
     "bunyan": "^1.8.5",
     "bunyan-error-serializer": "^1.0.4",
