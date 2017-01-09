@@ -6,6 +6,7 @@ import { memoize, uniqBy } from 'lodash';
 import { filter, until } from './promises';
 import decorateFunctionLogger from './decorate-function-logger';
 
+const INTERVAL = 60000;
 const PAGE_LENGTH = 100;
 
 const apiRaw = decorateFunctionLogger(({ logger, ...options }) => {
@@ -199,7 +200,7 @@ export default class GitLab {
                     const isIssueOpen = true; // https://gitlab.com/gitlab-org/gitlab-ce/issues/22740
 
                     return Q.fcall(() => {
-                        return isIssueOpen && Q.fcall(() => (
+                        return isIssueOpen && Q.delay(INTERVAL).then(() => (
                             this.paginate({
                                 logger,
                                 uri: `/projects/${id}/pipelines`
@@ -221,7 +222,7 @@ export default class GitLab {
                                         logger.trace(`pipeline status ${status}`);
                                         return status !== 'running' && status !== 'pending' && status !== 'created';
                                     })
-                                ), 60000)
+                                ), INTERVAL)
                             )).then(() => {
                                 logger.trace('pipeline no longer running');
                                 // ensure the pipeline was successful
