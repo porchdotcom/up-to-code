@@ -20,7 +20,6 @@ export default bunyan.createLogger({
     }],
     src: true,
     serializers: {
-        ...bunyan.stdSerializers,
         err: errorSerializer,
         body: truncateSerializer
     }
