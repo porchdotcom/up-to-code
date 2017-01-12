@@ -119,12 +119,13 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
 }) => {
     logger.trace(`time to clone and update gitlab repo ${repo}`);
     const cwd = `repos/gitlab/${repo}`;
+    const localBranch = getPackageBranchName(packageName);
     return Q.fcall(() => {
         logger.trace('clone');
         return exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${repo}.git ${cwd}`, { logger });
     }).then(() => {
         logger.trace('checkout');
-        return exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd, logger });
+        return exec(`git checkout -B ${localBranch}`, { cwd, logger });
     }).then(() => {
         logger.trace('version bump');
         return updateDependency({
@@ -132,8 +133,10 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
             packageName,
             logger
         });
-    }).then(([before, after]) => (
-        Q.fcall(() => (
+    }).then(([before, after]) => {
+        const breakingChange = major(before) !== major(after);
+        const remoteBranch = `${breakingChange ? 'wip-' : ''}${getPackageBranchName(packageName)}-v${major(after)}`;
+        return Q.fcall(() => (
             getPackageChangeMarkdown({
                 packageName,
                 base: `v${before}`,
@@ -154,22 +157,21 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 return exec(`git commit -a -m "Up to code bump of ${packageName}"`, { cwd, logger });
             }).then(() => {
                 logger.trace('push');
-                return exec('git push -fu origin HEAD', { cwd, logger });
+                return exec(`git push -fu origin ${localBranch}:${remoteBranch}`, { cwd, logger });
             }).then(() => {
                 logger.trace('create merge request');
-                const accept = major(before) === major(after);
                 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost, logger });
                 return gitlab.createMergeRequest({
                     body: `${body}${metadata ? `\n\n> ${metadata}` : ''}`,
-                    title: `${accept ? '' : 'WIP: ' }Up to code - ${packageName}`,
-                    head: getPackageBranchName(packageName),
+                    title: `${breakingChange ? 'WIP: ' : '' }Up to code - ${packageName} v${after}`,
+                    head: remoteBranch,
                     repo,
-                    accept,
+                    accept: !breakingChange,
                     logger
                 });
             })
-        ))
-    )).catch(err => (
+        ));
+    }).catch(err => (
         logger.error(err)
     ));
 });
