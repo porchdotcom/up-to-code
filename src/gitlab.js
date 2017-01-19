@@ -231,16 +231,16 @@ export default class GitLab {
                                     uri: `/projects/${id}/pipelines/${pipeline.id}`
                                 }).then(({ status }) => {
                                     logger.trace(`pipeline status ${status}`);
-                                    assert.equal(status, 'success');
+                                    assert.equal(status, 'success', `pipeline ${pipeline.id} was unsuccessful with status "${status}"`);
                                 });
                             }).then(() => (
                                 // ensure that the mr hasn't been updated
                                 this.api({
                                     logger,
                                     uri: `/projects/${id}/merge_request/${mr.id}`
-                                }).then(({ sha }) => {
-                                    logger.trace(`merge request update check ${mr.sha} ${sha}`);
-                                    assert.equal(sha, mr.sha);
+                                }).then(current => {
+                                    logger.trace(`merge request update check ${mr.sha} ${current.sha}`);
+                                    assert.equal(current.sha, mr.sha, `pipeline for ${mr.sha} has completed, but mr is now for the git commit ${current.sha}`);
                                 })
                             ))
                         ));
