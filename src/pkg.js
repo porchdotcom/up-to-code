@@ -48,7 +48,9 @@ const updateVersion = ({ path, packageName, logger }) => (
             dependencies = {},
             devDependencies = {},
             peerDependencies = {}
-        }, version) => {
+        }, publishedVersion) => {
+            const version = `^${publishedVersion}`;
+
             if (dependencies.hasOwnProperty(packageName)) {
                 return file.set({
                     dependencies: {
