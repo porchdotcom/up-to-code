@@ -35,9 +35,9 @@ const getPackageChangeMarkdown = decorateFunctionLogger(({ base, head, packageNa
             return gitlab.createPackageChangeMarkdown({ repo: packageName, base, head, logger });
         }
         throw new Error('git repo not found');
-    }).catch(error => {
-        logger.error({ error });
-        throw error;
+    }).catch(err => {
+        logger.error({ err });
+        throw err;
     })
 ));
 
