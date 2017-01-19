@@ -1,3 +1,4 @@
+import assert from 'assert';
 import jsonFile from 'json-file-plus';
 import Q from 'q';
 import exec from './exec';
@@ -24,6 +25,8 @@ const getVersion = ({ path, packageName, logger }) => (
             peerDependencies = {}
         }) => {
             if (dependencies.hasOwnProperty(packageName)) {
+                assert(!devDependencies.hasOwnProperty(packageName), `${packageName} found in both dependencies and devDependencies`);
+                assert(!peerDependencies.hasOwnProperty(packageName), `${packageName} found in both dependencies and peerDependencies`);
                 return exactVersion(dependencies[packageName]);
             }
             if (devDependencies.hasOwnProperty(packageName)) {
