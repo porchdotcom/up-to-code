@@ -148,7 +148,7 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 gitlabToken,
                 logger
             })
-        )).then(body => (
+        )).then(description => (
             Q.fcall(() => {
                 logger.trace('diff');
                 return exec('git diff', { cwd, logger });
@@ -162,7 +162,7 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 logger.trace('create merge request');
                 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost, logger });
                 return gitlab.createMergeRequest({
-                    body: `${body}${metadata ? `\n\n> ${metadata}` : ''}`,
+                    description: `${description}${metadata ? `\n\n> ${metadata}` : ''}`,
                     title: `${breakingChange ? 'WIP: ' : '' }Up to code - ${packageName} v${after}`,
                     head: remoteBranch,
                     repo,

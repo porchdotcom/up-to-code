@@ -145,7 +145,7 @@ export default class GitLab {
         ));
     });
 
-    createMergeRequest = decorateFunctionLogger(({ body, title, head, repo, accept, logger }) => {
+    createMergeRequest = decorateFunctionLogger(({ description, title, head, repo, accept, logger }) => {
         logger.trace(`createMergeRequest ${title}, ${head}, ${repo}, ${accept}`);
 
         return Q.fcall(() => (
@@ -172,14 +172,22 @@ export default class GitLab {
                     assert.equal(mrs.length, 1, `${head} not found`);
 
                     const [mr] = mrs;
-                    return this.api({
-                        logger,
-                        method: 'PUT',
-                        uri: `/projects/${id}/merge_requests/${mr.id}`,
-                        body: {
-                            title,
-                            description: body
-                        }
+                    return Q.fcall(() => (
+                        this.api({
+                            logger,
+                            method: 'PUT',
+                            uri: `/projects/${id}/merge_requests/${mr.id}`,
+                            body: {
+                                title,
+                                description
+                            }
+                        })
+                    )).tap(({
+                        title: updatedTitle,
+                        description: updatedDescription
+                    }) => {
+                        assert.equal(updatedTitle, mr.title, `description for mr ${mr.id} failed to update`);
+                        assert.equal(updatedDescription, mr.description, `description for mr ${mr.id} failed to update`);
                     });
                 }
                 return this.api({
@@ -190,7 +198,7 @@ export default class GitLab {
                         source_branch: head,
                         target_branch: 'master',
                         title,
-                        description: body
+                        description
                     }
                 });
             }).then(mr => {
