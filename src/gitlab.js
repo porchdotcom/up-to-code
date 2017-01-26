@@ -186,7 +186,7 @@ export default class GitLab {
                         title: updatedTitle,
                         description: updatedDescription
                     }) => {
-                        assert.equal(updatedTitle, mr.title, `description for mr ${mr.id} failed to update`);
+                        assert.equal(updatedTitle, mr.title, `title for mr ${mr.id} failed to update`);
                         assert.equal(updatedDescription, mr.description, `description for mr ${mr.id} failed to update`);
                     });
                 }
