@@ -119,13 +119,12 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
 }) => {
     logger.trace(`time to clone and update gitlab repo ${repo}`);
     const cwd = `repos/gitlab/${repo}`;
-    const localBranch = getPackageBranchName(packageName);
     return Q.fcall(() => {
         logger.trace('clone');
         return exec(`git clone --depth 1 https://${gitlabUser}:${gitlabToken}@${gitlabHost}/${gitlabOrg}/${repo}.git ${cwd}`, { logger });
     }).then(() => {
         logger.trace('checkout');
-        return exec(`git checkout -B ${localBranch}`, { cwd, logger });
+        return exec(`git checkout -B ${getPackageBranchName(packageName)}`, { cwd, logger });
     }).then(() => {
         logger.trace('version bump');
         return updateDependency({
@@ -135,7 +134,6 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
         });
     }).then(([before, after]) => {
         const breakingChange = major(before) !== major(after);
-        const remoteBranch = `${breakingChange ? 'wip-' : ''}${getPackageBranchName(packageName)}-v${major(after)}`;
         return Q.fcall(() => (
             getPackageChangeMarkdown({
                 packageName,
@@ -157,14 +155,14 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 return exec(`git commit -a -m "Up to code bump of ${packageName}"`, { cwd, logger });
             }).then(() => {
                 logger.trace('push');
-                return exec(`git push -fu origin ${localBranch}:${remoteBranch}`, { cwd, logger });
+                return exec(`git push -fu origin ${getPackageBranchName(packageName)}`, { cwd, logger });
             }).then(() => {
                 logger.trace('create merge request');
                 const gitlab = new GitLab({ org: gitlabOrg, token: gitlabToken, host: gitlabHost, logger });
                 return gitlab.createMergeRequest({
                     description: `${description}${metadata ? `\n\n> ${metadata}` : ''}`,
                     title: `${breakingChange ? 'WIP: ' : '' }Up to code - ${packageName} v${after}`,
-                    head: remoteBranch,
+                    head: getPackageBranchName(packageName),
                     repo,
                     accept: !breakingChange,
                     logger
