@@ -55,21 +55,21 @@ const updateVersion = ({ path, packageName, logger }) => (
             if (dependencies.hasOwnProperty(packageName)) {
                 return file.set({
                     dependencies: {
-                        [packageName]: version
+                        [packageName]: `^{version}`
                     }
                 });
             }
             if (devDependencies.hasOwnProperty(packageName)) {
                 return file.set({
                     devDependencies: {
-                        [packageName]: version
+                        [packageName]: `^{version}`
                     }
                 });
             }
             if (peerDependencies.hasOwnProperty(packageName)) {
                 return file.set({
                     peerDependencies: {
-                        [packageName]: version
+                        [packageName]: `^{version}`
                     }
                 });
             }
