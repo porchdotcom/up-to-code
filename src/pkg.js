@@ -7,7 +7,11 @@ import { memoize } from 'lodash';
 
 // update to exact versions
 // return whether the new version is not a major bump (ie, safe to merge without review)
-const exactVersion = version => version.match(semverRegex())[0];
+const exactVersion = version => {
+    const match = version.match(semverRegex());
+    assert(match, `${version} must be valid semver`);
+    return match[0];
+};
 const getPublishedVersion = memoize((packageName, logger) => (
     exec(`npm view ${packageName} version`, { logger }).then(version => version.trim())
 ));
@@ -55,21 +59,21 @@ const updateVersion = ({ path, packageName, logger }) => (
             if (dependencies.hasOwnProperty(packageName)) {
                 return file.set({
                     dependencies: {
-                        [packageName]: `^{version}`
+                        [packageName]: `^${version}`
                     }
                 });
             }
             if (devDependencies.hasOwnProperty(packageName)) {
                 return file.set({
                     devDependencies: {
-                        [packageName]: `^{version}`
+                        [packageName]: `^${version}`
                     }
                 });
             }
             if (peerDependencies.hasOwnProperty(packageName)) {
                 return file.set({
                     peerDependencies: {
-                        [packageName]: `^{version}`
+                        [packageName]: `^${version}`
                     }
                 });
             }
