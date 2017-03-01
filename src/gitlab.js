@@ -8,6 +8,7 @@ import decorateFunctionLogger from './decorate-function-logger';
 
 const INTERVAL = 60000;
 const PAGE_LENGTH = 100;
+const MAX_CHANGELOG_COMMITS = 25;
 
 const apiRaw = decorateFunctionLogger(({ logger, ...options }) => {
     const defer = Q.defer();
@@ -116,7 +117,7 @@ export default class GitLab {
             }) => {
                 const strippedTitle = title.replace(' [ci skip]', '').replace(' [skip ci]', '');
                 return `- ${authorName} - [${strippedTitle}](https://${this.host}/${this.org}/${repo}/commit/${id})`; // eslint-disable-line camelcase
-            }).reverse().join('\n')
+            }).reverse().slice(0, MAX_CHANGELOG_COMMITS).join('\n')
         ].join('\n\n')));
     });
 

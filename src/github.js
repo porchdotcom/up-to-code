@@ -6,6 +6,7 @@ import { filter } from './promises';
 
 const PAGE_LENGTH = 100;
 const HELPSCORE_SCM = 'helpscore-scm';
+const MAX_CHANGELOG_COMMITS = 25;
 
 export default class GitHub {
     constructor({ token, org }) {
@@ -143,7 +144,7 @@ export default class GitHub {
                 `${(
                     name === HELPSCORE_SCM ? '' : `- __${name}__`
                 )}- [${message.split('\n')[0]}](${html_url})` // eslint-disable-line camelcase
-            )).reverse().join('\n')
+            )).reverse().slice(0, MAX_CHANGELOG_COMMITS).join('\n')
         ].join('\n\n')));
     }
 }
