@@ -53,7 +53,9 @@ const updateVersion = ({ path, packageName, logger }) => (
             dependencies = {},
             devDependencies = {},
             peerDependencies = {}
-        }, version) => {
+        }, publishedVersion) => {
+            const version = `^${publishedVersion}`;
+
             if (dependencies.hasOwnProperty(packageName)) {
                 assert(!satisfies(version, dependencies[packageName]), `${packageName} latest version ${version} matches existing dependency ${dependencies[packageName]}`);
                 return file.set({
