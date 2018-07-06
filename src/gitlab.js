@@ -31,7 +31,7 @@ export default class GitLab {
             baseUrl: url.format({
                 protocol: 'https:',
                 host,
-                pathname: '/api/v3'
+                pathname: '/api/v4'
             }),
             headers: {
                 'PRIVATE-TOKEN': token
@@ -132,9 +132,9 @@ export default class GitLab {
                     this.api({
                         logger,
                         cached: true,
-                        uri: `/projects/${id}/repository/blobs/master`,
+                        uri: `/projects/${id}/repository/files/package.json/raw`,
                         qs: {
-                            filepath: 'package.json'
+                            ref: 'master'
                         }
                     })
                 )).then(({ dependencies = {}, devDependencies = {}, peerDependencies = {} }) => (
