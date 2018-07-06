@@ -82,6 +82,7 @@ const updateGithubRepoDependency = decorateFunctionLogger(({
             gitlabToken,
             logger
         })
+        .catch(() => '')
     )).then(body => (
         Q.fcall(() => {
             logger.trace('commit');
@@ -146,6 +147,7 @@ export const updateGitlabRepoDependency = decorateFunctionLogger(({
                 gitlabToken,
                 logger
             })
+            .catch(() => '')
         )).then(description => (
             Q.fcall(() => {
                 logger.trace('diff');
